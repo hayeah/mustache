@@ -92,7 +92,7 @@ type partialElement struct {
 	prov   PartialProvider
 }
 
-// Template represents a compilde mustache template
+// Template represents a compiled mustache template
 type Template struct {
 	data     string
 	otag     string
@@ -231,7 +231,7 @@ func (tmpl *Template) readText() (*textReadingResult, error) {
 		}
 	}
 
-	mayStandalone := (i == 0 || tmpl.data[i-1] == '\n')
+	mayStandalone := i == 0 || tmpl.data[i-1] == '\n'
 
 	if mayStandalone {
 		return &textReadingResult{
@@ -528,7 +528,7 @@ Outer:
 	if allowMissing {
 		return reflect.Value{}, nil
 	}
-	return reflect.Value{}, fmt.Errorf("Missing variable %q", name)
+	return reflect.Value{}, fmt.Errorf("missing variable %q", name)
 }
 
 func isEmpty(v reflect.Value) bool {
@@ -571,7 +571,7 @@ func renderSection(section *sectionElement, contextChain []interface{}, buf io.W
 		return err
 	}
 	var context = contextChain[len(contextChain)-1].(reflect.Value)
-	var contexts = []interface{}{}
+	var contexts []interface{}
 	// if the value is nil, check if it's an inverted section
 	isEmpty := isEmpty(value)
 	if isEmpty && !section.inverted || !isEmpty && section.inverted {
@@ -717,7 +717,7 @@ func ParseString(data string) (*Template, error) {
 func ParseStringRaw(data string, forceRaw bool) (*Template, error) {
 	cwd := os.Getenv("CWD")
 	partials := &FileProvider{
-		Paths: []string{cwd, " "},
+		Paths: []string{cwd},
 	}
 
 	return ParseStringPartialsRaw(data, partials, forceRaw)
@@ -752,7 +752,7 @@ func ParseStringPartialsRaw(data string, partials PartialProvider, forceRaw bool
 func ParseFile(filename string) (*Template, error) {
 	dirname, _ := path.Split(filename)
 	partials := &FileProvider{
-		Paths: []string{dirname, " "},
+		Paths: []string{dirname},
 	}
 
 	return ParseFilePartials(filename, partials)
