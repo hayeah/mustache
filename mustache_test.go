@@ -239,7 +239,7 @@ func TestMissing(t *testing.T) {
 		output, err := Render(test.tmpl, test.context)
 		if err == nil {
 			t.Errorf("%q expected missing variable error but got %q", test.tmpl, output)
-		} else if !strings.Contains(err.Error(), "Missing variable") {
+		} else if !strings.Contains(err.Error(), "missing variable") {
 			t.Errorf("%q expected missing variable error but got %q", test.tmpl, err.Error())
 		}
 	}
@@ -298,6 +298,20 @@ func TestPartial(t *testing.T) {
 		},
 	}
 	compareTags(t, tmpl.Tags(), expectedTags)
+}
+
+func TestPartialSafety(t *testing.T) {
+	tmpl, err := ParseString("{{>../unsafe}}")
+	if err != nil {
+		t.Error(err)
+	}
+	txt, err := tmpl.Render(nil)
+	if err == nil {
+		t.Errorf("expected error for unsafe partial")
+	}
+	if txt != "" {
+		t.Errorf("expected unsafe partial to fail")
+	}
 }
 
 /*
