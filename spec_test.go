@@ -10,7 +10,7 @@ import (
 )
 
 var enabledTests = map[string]map[string]bool{
-	"comments.json": map[string]bool{
+	"comments.json": {
 		"Inline":                           true,
 		"Multiline":                        true,
 		"Standalone":                       true,
@@ -22,8 +22,8 @@ var enabledTests = map[string]map[string]bool{
 		"Indented Multiline Standalone":    true,
 		"Indented Inline":                  true,
 		"Surrounding Whitespace":           true,
-	},
-	"delimiters.json": map[string]bool{
+		},
+	"delimiters.json": {
 		"Pair Behavior":                    true,
 		"Special Characters":               true,
 		"Sections":                         true,
@@ -38,8 +38,8 @@ var enabledTests = map[string]map[string]bool{
 		"Standalone Line Endings":          true,
 		"Standalone Without Previous Line": true,
 		"Standalone Without Newline":       true,
-	},
-	"interpolation.json": map[string]bool{
+		},
+	"interpolation.json": {
 		"No Interpolation":    true,
 		"Basic Interpolation": true,
 		// disabled b/c Go uses "&#34;" in place of "&quot;"
@@ -72,8 +72,8 @@ var enabledTests = map[string]map[string]bool{
 		"Interpolation With Padding":                   true,
 		"Triple Mustache With Padding":                 true,
 		"Ampersand With Padding":                       true,
-	},
-	"inverted.json": map[string]bool{
+		},
+	"inverted.json": {
 		"Falsey":                           true,
 		"Truthy":                           true,
 		"Context":                          true,
@@ -95,8 +95,8 @@ var enabledTests = map[string]map[string]bool{
 		"Standalone Line Endings":          true,
 		"Standalone Without Previous Line": true,
 		"Standalone Without Newline":       true,
-	},
-	"partials.json": map[string]bool{
+		},
+	"partials.json": {
 		"Basic Behavior":                   true,
 		"Failed Lookup":                    true,
 		"Context":                          true,
@@ -108,8 +108,8 @@ var enabledTests = map[string]map[string]bool{
 		"Standalone Without Newline":       true,
 		"Standalone Indentation":           true,
 		"Padding Whitespace":               true,
-	},
-	"sections.json": map[string]bool{
+		},
+	"sections.json": {
 		"Truthy":                           true,
 		"Falsey":                           true,
 		"Context":                          true,
@@ -136,7 +136,7 @@ var enabledTests = map[string]map[string]bool{
 		"Standalone Without Previous Line": true,
 		"Standalone Without Newline":       true,
 		"Padding":                          true,
-	},
+		},
 	"~lambdas.json": nil, // not implemented
 }
 
