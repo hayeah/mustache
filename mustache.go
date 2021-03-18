@@ -715,7 +715,10 @@ func ParseString(data string) (*Template, error) {
 // be used to efficiently render the template multiple times with different data
 // sources.
 func ParseStringRaw(data string, forceRaw bool) (*Template, error) {
-	cwd := os.Getenv("CWD")
+	cwd, err := os.Getwd()
+	if err != nil {
+		return nil, err
+	}
 	partials := &FileProvider{
 		Paths: []string{cwd},
 	}
