@@ -1,10 +1,12 @@
 package mustache
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path"
 	"regexp"
+	"strings"
 )
 
 // PartialProvider comprises the behaviors required of a struct to be able to provide partials to the mustache rendering
@@ -19,15 +21,26 @@ type PartialProvider interface {
 // FileProvider implements the PartialProvider interface by providing partials drawn from a filesystem. When a partial
 // named `NAME`  is requested, FileProvider searches each listed path for a file named as `NAME` followed by any of the
 // listed extensions. The default for `Paths` is to search the current working directory. The default for `Extensions`
-// is to examine, in order, no extension; then ".mustache"; then ".stache".
+// is to examine, in order, no extension; then ".mustache"; then ".stache". If Unsafe is set, partial names are allowed
+// to begin with '.' or '..' after cleaning, meaning they can potentially refer to files outside any of the listed
+// directory paths.
 type FileProvider struct {
 	Paths      []string
 	Extensions []string
+	Unsafe     bool
 }
 
 // Get accepts the name of a partial and returns the parsed partial.
 func (fp *FileProvider) Get(name string) (string, error) {
-	var filename string
+	var cleanname string
+	if fp.Unsafe {
+		cleanname = name
+	} else {
+		cleanname = path.Clean(name)
+		if strings.HasPrefix(cleanname, ".") {
+			return "", fmt.Errorf("unsafe partial name passed to FileProvider: %s", name)
+		}
+	}
 
 	var paths []string
 	if fp.Paths != nil {
@@ -43,23 +56,24 @@ func (fp *FileProvider) Get(name string) (string, error) {
 		exts = []string{"", ".mustache", ".stache"}
 	}
 
+	var f *os.File
+	var err error
 	for _, p := range paths {
 		for _, e := range exts {
-			name := path.Join(p, name+e)
-			f, err := os.Open(name)
+			pname := path.Join(p, name+e)
+			f, err = os.Open(pname)
 			if err == nil {
-				filename = name
-				f.Close()
 				break
 			}
 		}
 	}
 
-	if filename == "" {
+	if f == nil {
 		return "", nil
 	}
+	defer f.Close()
 
-	data, err := ioutil.ReadFile(filename)
+	data, err := ioutil.ReadAll(f)
 	if err != nil {
 		return "", err
 	}
