@@ -370,8 +370,8 @@ func (tmpl *Template) parseSection(section *sectionElement) error {
 			}
 			section.elems = append(section.elems, partial)
 		case '=':
-			if tag[len(tag)-1] != '=' {
-				return parseError{tmpl.curline, "Invalid meta tag"}
+			if len(tag) < 2 || tag[len(tag)-1] != '=' {
+				return parseError{tmpl.curline, "invalid meta tag"}
 			}
 			tag = strings.TrimSpace(tag[1 : len(tag)-1])
 			newtags := strings.SplitN(tag, " ", 2)
