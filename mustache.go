@@ -21,6 +21,9 @@ var (
 	AllowMissingVariables = true
 )
 
+// parameter for lambda sections
+type RenderFn func(text string) (string, error)
+
 // A TagType represents the specific type of mustache tag that a Tag
 // represents. The zero TagType is not a valid type.
 type TagType uint
@@ -274,6 +277,8 @@ func (tmpl *Template) readTag(mayStandalone bool) (*tagReadingResult, error) {
 	var err error
 	if tmpl.p < len(tmpl.data) && tmpl.data[tmpl.p] == '{' {
 		text, err = tmpl.readString("}" + tmpl.ctag)
+	} else if tmpl.p < len(tmpl.data) && tmpl.data[tmpl.p] == '|' {
+		text, err = tmpl.readString("|" + tmpl.ctag)
 	} else {
 		text, err = tmpl.readString(tmpl.ctag)
 	}
@@ -547,6 +552,34 @@ Outer:
 	return reflect.Value{}, fmt.Errorf("missing variable %q", name)
 }
 
+func lookup_r(contextChain []interface{}, name string, allowMissing bool) (reflect.Value, error) {
+	var val reflect.Value
+	var err error
+	if name[0] == '|' {
+		// render recursively
+		rname := strings.Trim(name, "|")
+		recn := 1 + strings.Count(name, "|") / 2
+		i := 0
+		for ; i < recn; i++ {
+			val, err = lookup(contextChain, rname, allowMissing)
+			if err != nil {
+				break
+			}
+			if val.IsValid() {
+				rname = fmt.Sprint(val.Interface())
+			} else {
+				break
+			}
+		}
+		if i == recn {
+			err = nil
+		}
+	} else {
+		val, err = lookup(contextChain, name, allowMissing)
+	}
+	return val, err
+}
+
 func isEmpty(v reflect.Value) bool {
 	if !v.IsValid() || v.Interface() == nil {
 		return true
@@ -605,6 +638,29 @@ func (tmpl *Template) renderSection(section *sectionElement, contextChain []inte
 			}
 		case reflect.Map, reflect.Struct:
 			contexts = append(contexts, value)
+		case reflect.Func:
+			var text bytes.Buffer
+			getSectionText(section.elems, &text)
+			render := func(text string) (string, error) {
+				templ, err := ParseString(text)
+				if err != nil {
+					return "", err
+				}
+				var buf bytes.Buffer
+				err = templ.renderTemplate(contextChain, &buf)
+				if err != nil {
+					return "", err
+				}
+				return buf.String(), nil
+			}
+			in := []reflect.Value{reflect.ValueOf(text.String()), reflect.ValueOf(render)}
+			res := val.Call(in)
+			res_str := res[0].String()
+			if !res[1].IsNil() {
+				return res[1].Interface().(error)
+			}
+			fmt.Fprintf(buf, "%s", res_str)
+			return nil
 		default:
 			contexts = append(contexts, context)
 		}
@@ -652,6 +708,39 @@ func JSONEscape(dest io.Writer, data string) {
 	}
 }
 
+func getSectionText(elements []interface{}, buf io.Writer) {
+	for _, element := range elements {
+		getElementText(element, buf)
+	}
+}
+
+func getElementText(element interface{}, buf io.Writer) {
+	switch elem := element.(type) {
+	case *textElement:
+		fmt.Fprintf(buf, "%s", elem.text)
+	case *varElement:
+		fmt.Fprintf(buf, "{{%s}}", elem.name)
+	case *sectionElement:
+		if elem.inverted {
+			fmt.Fprintf(buf, "{{^%s}}", elem.name)
+		} else {
+			fmt.Fprintf(buf, "{{#%s}}", elem.name)
+		}
+		for _, nelem := range elem.elems {
+			getElementText(nelem, buf)
+		}
+		fmt.Fprintf(buf, "{{/%s}}", elem.name)
+	case *Template:
+		fmt.Fprint(buf, "???")
+	}
+}
+
+func (tmpl *Template) renderSectionElements(elements []interface{}, contextChain []interface{}, buf io.Writer) {
+	for _, elem := range elements {
+		_ = tmpl.renderElement(elem, contextChain, buf)
+	}
+}
+
 func (tmpl *Template) renderElement(element interface{}, contextChain []interface{}, buf io.Writer) error {
 	switch elem := element.(type) {
 	case *textElement:
@@ -663,7 +752,7 @@ func (tmpl *Template) renderElement(element interface{}, contextChain []interfac
 				fmt.Printf("Panic while looking up %q: %s\n", elem.name, r)
 			}
 		}()
-		val, err := lookup(contextChain, elem.name, AllowMissingVariables)
+		val, err := lookup_r(contextChain, elem.name, AllowMissingVariables)
 		if err != nil {
 			return err
 		}
