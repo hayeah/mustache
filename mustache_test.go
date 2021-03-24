@@ -314,6 +314,128 @@ func TestPartialSafety(t *testing.T) {
 	}
 }
 
+func TestJSONEscape(t *testing.T) {
+	tests := []struct{
+		Before string
+		After string
+	}{
+		{`'single quotes'`, `'single quotes'`},
+		{`"double quotes"`, `\"double quotes\"`},
+		{`\backslash\`, `\\backslash\\`},
+		{"some\tcontrol\ncharacters\x1c", `some\tcontrol\ncharacters\u001c`},
+		{ `🦜`, `🦜`},
+	}
+	var buf bytes.Buffer
+	for _, tst := range tests {
+		JSONEscape(&buf, tst.Before)
+		txt := buf.String()
+		if txt != tst.After {
+			t.Errorf("got %s expected %s", txt, tst.After)
+		}
+		buf.Reset()
+	}
+}
+
+func TestRenderRaw(t *testing.T) {
+	tests := []struct{
+		Template string
+		Data map[string]interface{}
+		Result string
+	}{
+		{
+			Template: `{{a}} {{b}} {{c}}`,
+			Data: map[string]interface{}{"a": `<a href="">`, "b": "}o&o{", "c": "\t"},
+			Result:   "<a href=\"\"> }o&o{ \t",
+		},
+	}
+	for _, tst := range tests {
+		tmpl, err := ParseString(tst.Template)
+		if err != nil {
+			t.Error(err)
+		}
+		tmpl.OutputMode = Raw
+		txt, err := tmpl.Render(tst.Data)
+		if err != nil {
+			t.Error(err)
+		}
+		if txt != tst.Result {
+			t.Errorf("expected %s got %s", tst.Result, txt)
+		}
+	}
+}
+
+func TestRenderJSON(t *testing.T) {
+
+	type item struct {
+		Emoji string
+		Name string
+	}
+
+	tests := []struct{
+		Template string
+		Data map[string]interface{}
+		Result string
+	}{
+		{ Template: `{"a": "{{a}}", "b": "{{b}}", "c": "{{c}}"}`,
+			Data: map[string]interface{}{"a": "Text\nwith\tcontrols", "b": `"I said 'No!'"`, "c": "EOF\u001cHERE"},
+			Result: `{"a": "Text\nwith\tcontrols", "b": "\"I said 'No!'\"", "c": "EOF\u001cHERE"}` },
+		{
+			Template: `{"a": [""{{#a}},"{{.}}"{{/a}}]}`,
+			Data:     map[string]interface{}{"a": []int{1,2,3}},
+			Result:   `{"a": ["","1","2","3"]}`,
+		},
+		{
+			Template: `"{{#values}}{{Emoji}}{{Name}} {{/values}}"`,
+			Data:     map[string]interface{}{
+				"values": interface{}([]item{
+					item{
+						Emoji: "🟡",
+						Name:  "Rico",
+					},
+					item{
+						Emoji: "🟢",
+						Name:  "Bruce",
+					},
+					item{
+						Emoji: "🔵",
+						Name:  "Luna",
+					},
+				}),
+			},
+			Result:   `"🟡Rico 🟢Bruce 🔵Luna "`,
+		},
+	}
+	for _, tst := range tests {
+		tmpl, err := ParseString(tst.Template)
+		if err != nil {
+			t.Error(err)
+		}
+		tmpl.OutputMode = EscapeJSON
+		txt, err := tmpl.Render(tst.Data)
+		if err != nil {
+			t.Error(err)
+		}
+		if txt != tst.Result {
+			t.Errorf("expected %s got %s", tst.Result, txt)
+		}
+	}
+}
+
+// Make sure bugs caught by fuzz testing don't creep back in
+func TestCrashers(t *testing.T) {
+	crashers := []string{
+		`{{#}}{{#}}{{#}}{{#}}{{#}}{{=}}`,
+		`{{#}}{{#}}{{#}}{{#}}{{#}}{{#}}{{#}}{{#}}{{=}}`,
+	}
+	for i, c := range crashers {
+		t.Log(i)
+		_, err := ParseString(c)
+		if err == nil {
+			t.Error(err)
+		}
+	}
+}
+
 /*
 func TestSectionPartial(t *testing.T) {
     filename := path.Join(path.Join(os.Getenv("PWD"), "tests"), "test3.mustache")

@@ -11,6 +11,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"unicode"
 )
 
 var (
@@ -92,7 +93,19 @@ type partialElement struct {
 	prov   PartialProvider
 }
 
-// Template represents a compiled mustache template
+// EscapeMode indicates what sort of escaping to perform in template output.
+// EscapeHTML is the default, and assumes the template is producing HTML.
+// EscapeJSON switches to JSON escaping, for use cases such as generating Slack messages.
+// Raw turns off escaping, for situations where you are absolutely sure you want plain text.
+type EscapeMode int
+
+const (
+	EscapeHTML EscapeMode = iota
+	EscapeJSON
+	Raw
+)
+
+// Template represents a compiled mustache template.
 type Template struct {
 	data     string
 	otag     string
@@ -102,6 +115,9 @@ type Template struct {
 	elems    []interface{}
 	forceRaw bool
 	partial  PartialProvider
+	// OutputMode can be set to indicate what sort of output the template is expected to produce. This switches
+	// the escaping into an appropriate mode for HTML (default), JSON, or plain text.
+	OutputMode EscapeMode
 }
 
 type parseError struct {
@@ -565,7 +581,7 @@ loop:
 	return v
 }
 
-func renderSection(section *sectionElement, contextChain []interface{}, buf io.Writer) error {
+func (tmpl *Template) renderSection(section *sectionElement, contextChain []interface{}, buf io.Writer) error {
 	value, err := lookup(contextChain, section.name, true)
 	if err != nil {
 		return err
@@ -602,7 +618,7 @@ func renderSection(section *sectionElement, contextChain []interface{}, buf io.W
 	for _, ctx := range contexts {
 		chain2[0] = ctx
 		for _, elem := range section.elems {
-			if err := renderElement(elem, chain2, buf); err != nil {
+			if err := tmpl.renderElement(elem, chain2, buf); err != nil {
 				return err
 			}
 		}
@@ -610,7 +626,33 @@ func renderSection(section *sectionElement, contextChain []interface{}, buf io.W
 	return nil
 }
 
-func renderElement(element interface{}, contextChain []interface{}, buf io.Writer) error {
+func JSONEscape(dest io.Writer, data string) {
+	for _, r := range data {
+		switch r {
+		case '"', '\\':
+		   dest.Write([]byte("\\"))
+		   dest.Write([]byte(string(r)))
+		case '\n':
+			dest.Write([]byte(`\n`))
+		case '\b':
+			dest.Write([]byte(`\b`))
+		case '\f':
+			dest.Write([]byte(`\f`))
+		case '\r':
+			dest.Write([]byte(`\r`))
+		case '\t':
+			dest.Write([]byte(`\t`))
+		default:
+			if unicode.IsControl(r) {
+				dest.Write([]byte(fmt.Sprintf("\\u%04x", r)))
+			} else {
+				dest.Write([]byte(string(r)))
+			}
+		}
+	}
+}
+
+func (tmpl *Template) renderElement(element interface{}, contextChain []interface{}, buf io.Writer) error {
 	switch elem := element.(type) {
 	case *textElement:
 		_, err := buf.Write(elem.text)
@@ -631,11 +673,20 @@ func renderElement(element interface{}, contextChain []interface{}, buf io.Write
 				fmt.Fprint(buf, val.Interface())
 			} else {
 				s := fmt.Sprint(val.Interface())
-				template.HTMLEscape(buf, []byte(s))
+				switch tmpl.OutputMode {
+				case EscapeJSON:
+					JSONEscape(buf, s)
+				case EscapeHTML:
+					template.HTMLEscape(buf, []byte(s))
+				case Raw:
+					if _, err = buf.Write([]byte(s)); err != nil {
+						return err
+					}
+				}
 			}
 		}
 	case *sectionElement:
-		if err := renderSection(elem, contextChain, buf); err != nil {
+		if err := tmpl.renderSection(elem, contextChain, buf); err != nil {
 			return err
 		}
 	case *partialElement:
@@ -652,7 +703,7 @@ func renderElement(element interface{}, contextChain []interface{}, buf io.Write
 
 func (tmpl *Template) renderTemplate(contextChain []interface{}, buf io.Writer) error {
 	for _, elem := range tmpl.elems {
-		if err := renderElement(elem, contextChain, buf); err != nil {
+		if err := tmpl.renderElement(elem, contextChain, buf); err != nil {
 			return err
 		}
 	}
@@ -739,7 +790,7 @@ func ParseStringPartials(data string, partials PartialProvider) (*Template, erro
 // to efficiently render the template multiple times with different data
 // sources.
 func ParseStringPartialsRaw(data string, partials PartialProvider, forceRaw bool) (*Template, error) {
-	tmpl := Template{data, "{{", "}}", 0, 1, []interface{}{}, forceRaw, partials}
+	tmpl := Template{data, "{{", "}}", 0, 1, []interface{}{}, forceRaw, partials, EscapeHTML}
 	err := tmpl.parse()
 
 	if err != nil {
@@ -779,7 +830,7 @@ func ParseFilePartialsRaw(filename string, forceRaw bool, partials PartialProvid
 		return nil, err
 	}
 
-	tmpl := Template{string(data), "{{", "}}", 0, 1, []interface{}{}, forceRaw, partials}
+	tmpl := Template{string(data), "{{", "}}", 0, 1, []interface{}{}, forceRaw, partials, EscapeHTML}
 	err = tmpl.parse()
 
 	if err != nil {
