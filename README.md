@@ -1,23 +1,17 @@
 # Mustache Template Engine for Go
 
-[![Build Status](https://img.shields.io/travis/cbroglie/mustache.svg)](https://travis-ci.org/cbroglie/mustache)
-[![Go Doc](https://godoc.org/github.com/cbroglie/mustache?status.svg)](https://godoc.org/github.com/cbroglie/mustache)
-[![Go Report Card](https://goreportcard.com/badge/github.com/cbroglie/mustache)](https://goreportcard.com/report/github.com/cbroglie/mustache)
-[![codecov](https://codecov.io/gh/cbroglie/mustache/branch/master/graph/badge.svg)](https://codecov.io/gh/cbroglie/mustache)
-[![Downloads](https://img.shields.io/github/downloads/cbroglie/mustache/latest/total.svg)](https://github.com/cbroglie/mustache/releases)
-[![Latest release](https://img.shields.io/github/release/cbroglie/mustache.svg)](https://github.com/cbroglie/mustache/releases)
-
-
 <img src="./images/logo.jpeg" alt="logo" width="100"/>
 
 ----
 
 ## Why a Fork?
 
-I forked [hoisie/mustache](https://github.com/hoisie/mustache) because it does not appear to be maintained, and I wanted to add the following functionality:
+I forked [cbroglie/mustache](https://github.com/cbroglie/mustache) because it does not appear to be maintained, and I wanted to add the following functionality:
 
-- Update the API to follow the idiomatic Go convention of returning errors (this is a breaking change)
-- Add option to treat missing variables as errors
+- Add support for JSON and plain text escaping modes modes (for example, for templating e-mail, or JSON messages for Slack notifications).
+- Add [a previously submitted patch for lambda support](https://github.com/cbroglie/mustache/pull/28).
+
+I also wanted to clear up some security holes, including one found by fuzzing.
 
 ----
 
@@ -231,3 +225,5 @@ It'll be blank. You either have to use `&Person{"John", "Smith"}`, or call `Name
 - Change delimiter
 - Sections (boolean, enumerable, and inverted)
 - Partials
+- Lambdas
+- HTML, JSON or plain text output
