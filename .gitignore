@@ -13,3 +13,8 @@ _testmain.go
 coverage.txt
 /bin
 /dist
+.idea
+mustache-fuzz.zip
+crashers
+corpus
+suppressions

@@ -1,24 +1,33 @@
-# Mustache Template Engine for Go
+# Mustache template engine for Go
 
-<img src="./images/logo.jpeg" alt="logo" width="100"/>
+[![Go Doc](https://pkg.go.dev/badge/github.com/RumbleDiscovery/mustache)](https://pkg.go.dev/github.com/RumbleDiscovery/mustache)
+[![Go Report Card](https://goreportcard.com/badge/github.com/RumbleDiscovery/mustache)](https://goreportcard.com/report/github.com/RumbleDiscovery/mustache)
+
+
+<img src="images/logo.jpeg" alt="logo" width="100"/>
 
 ----
 
-## Why a Fork?
+## Why a fork?
 
 I forked [cbroglie/mustache](https://github.com/cbroglie/mustache) because it does not appear to be maintained, and I wanted to add the following functionality:
 
 - Add support for JSON and plain text escaping modes modes (for example, for templating e-mail, or JSON messages for Slack notifications).
 - Add [a previously submitted patch for lambda support](https://github.com/cbroglie/mustache/pull/28).
 
-I also wanted to clear up some security holes, including one found by fuzzing.
+I also wanted to clear up some security holes, including two found by fuzzing.
+
+The goal is for this to be a robust, performant, standards-compliant Mustache template engine for Go, and for it to be
+safe to allow end users to supply templates. Extensions to the templating language are generally not desired. If you
+want more than Mustache offers, consider a [Handlebars](https://handlebarsjs.com/) implementation such
+as [Mario](https://github.com/imantung/mario).
 
 ----
 
-## CLI Overview
+## CLI overview
 
 ```bash
-➜  ~ go get github.com/cbroglie/mustache/...
+➜  ~ go get github.com/RumbleDiscovery/mustache/...
 ➜  ~ mustache
 Usage:
   mustache [data] template [flags]
@@ -38,27 +47,30 @@ Flags:
 
 ----
 
-## Package Overview
+## Package overview
 
 This library is an implementation of the Mustache template language in Go.
 
-### Mustache Spec Compliance
+### Mustache spec compliance
 
-[mustache/spec](https://github.com/mustache/spec) contains the formal standard for Mustache, and it is included as a submodule (using v1.1.3) for testing compliance. All of the tests pass (big thanks to [kei10in](https://github.com/kei10in)), though the optional lambda support has not been implemented.
+[mustache/spec](https://github.com/mustache/spec) contains the formal standard for Mustache, and it is included as a
+submodule (using v1.1.3) for testing compliance. All of the tests pass (big thanks
+to [kei10in](https://github.com/kei10in)), though the optional lambda support has not been fully implemented.
 
 ----
 
 ## Documentation
 
-For more information about mustache, check out the [mustache project page](http://github.com/defunkt/mustache) or the [mustache manual](http://mustache.github.com/mustache.5.html).
+For more information about mustache, check out the [mustache project page](https://mustache.github.io/) or
+the [mustache manual](http://mustache.github.com/mustache.5.html).
 
-Also check out some [example mustache files](http://github.com/defunkt/mustache/tree/master/examples/)
+Also check out some [example mustache files](http://github.com/defunkt/mustache/tree/master/examples/).
 
 ----
 
 ## Installation
 
-To install mustache.go, simply run `go get github.com/cbroglie/mustache/...`. To use it in a program, use `import "github.com/cbroglie/mustache"`
+To install mustache.go, simply run `go get github.com/RumbleDiscovery/mustache/...`. To use it in a program, use `import "github.com/RumbleDiscovery/mustache"`
 
 ----
 
@@ -76,9 +88,12 @@ ParseString(data string) (*Template, error)
 ParseFile(filename string) (*Template, error)
 ```
 
-There are also two additional methods for using layouts (explained below); as well as several more that can provide a custom Partial retrieval.
+There are also two additional methods for using layouts (explained below); as well as several more that can provide a
+custom Partial retrieval.
 
-The Render method takes a string and a data source, which is generally a map or struct, and returns the output string. If the template file contains an error, the return value is a description of the error. There's a similar method, RenderFile, which takes a filename as an argument and uses that for the template contents.
+The `Render` method takes a string and a data source, which is generally a map or struct, and returns the output string.
+If the template file contains an error, the return value is a description of the error. There's a similar
+method, `RenderFile`, which takes a filename as an argument and uses that for the template contents.
 
 ```go
 data, err := mustache.Render("hello {{c}}", map[string]string{"c": "world"})
@@ -100,13 +115,24 @@ For more example usage, please see `mustache_test.go`
 
 ## Escaping
 
-mustache.go follows the official mustache HTML escaping rules. That is, if you enclose a variable with two curly brackets, `{{var}}`, the contents are HTML-escaped. For instance, strings like `5 > 2` are converted to `5 &gt; 2`. To use raw characters, use three curly brackets `{{{var}}}`.
+By default, mustache.go follows the official mustache HTML escaping rules. That is, if you enclose a variable with two
+curly brackets, `{{var}}`, the contents are HTML-escaped. For instance, strings like `5 > 2` are converted to `5 &gt; 2`.
+To use raw characters, use three curly brackets `{{{var}}}`.
+
+This implementation of Mustache also allows you to run the engine in JSON mode, in which case the standard JSON quoting
+rules are used. To do this, compile the template then set `tmpl.OutputMode = mustache.EscapeJSON`. Note that the JSON
+escaping rules are different from the rules used by Go's text/template.JSEscape, and do not guarantee that the JSON will
+be safe to include as part of an HTML page.
+
+A third mode of `mustache.Raw` allows the use of Mustache templates to generate plain text, such as e-mail messages and
+console application help text.
 
 ----
 
 ## Layouts
 
-It is a common pattern to include a template file as a "wrapper" for other templates. The wrapper may include a header and a footer, for instance. Mustache.go supports this pattern with the following two methods:
+It is a common pattern to include a template file as a "wrapper" for other templates. The wrapper may include a header
+and a footer, for instance. Mustache.go supports this pattern with the following two methods:
 
 ```go
 RenderInLayout(data string, layout string, context ...interface{}) (string, error)
@@ -148,7 +174,8 @@ A call to `RenderFileInLayout("template.html.mustache", "layout.html.mustache", 
 
 ## Custom PartialProvider
 
-Mustache.go has been extended to support a user-defined repository for mustache partials, instead of the default of requiring file-based templates.
+Mustache.go has been extended to support a user-defined repository for mustache partials, instead of the default of
+requiring file-based templates.
 
 Several new top-level functions have been introduced to take advantage of this:
 
@@ -191,7 +218,8 @@ tmpl, err := ParseStringPartials("This partial is loaded from a map: {{>foo}}", 
 
 ## A note about method receivers
 
-Mustache.go supports calling methods on objects, but you have to be aware of Go's limitations. For example, lets's say you have the following type:
+Mustache.go supports calling methods on objects, but you have to be aware of Go's limitations. For example, lets's say
+you have the following type:
 
 ```go
 type Person struct {
@@ -208,7 +236,9 @@ func (p Person) Name2() string {
 }
 ```
 
-While they appear to be identical methods, `Name1` has a pointer receiver, and `Name2` has a value receiver. Objects of type `Person`(non-pointer) can only access `Name2`, while objects of type `*Person`(person) can access both. This is by design in the Go language.
+While they appear to be identical methods, `Name1` has a pointer receiver, and `Name2` has a value receiver. Objects of
+type `Person`(non-pointer) can only access `Name2`, while objects of type `*Person`(person) can access both. This is by
+design in the Go language.
 
 So if you write the following:
 
