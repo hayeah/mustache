@@ -81,7 +81,16 @@ func (c Category) DisplayName() string {
 	return c.Tag + " - " + c.Description
 }
 
+func TestTagType(t *testing.T) {
+	tt := Partial
+	ts := tt.String()
+	if ts != "Partial" {
+		t.Errorf("got %s, expected Partial", ts)
+	}
+}
+
 var tests = []Test{
+	{`{{/}}`, nil, "", parseError{line: 1, message: "unmatched close tag"}},
 	{`hello world`, nil, "hello world", nil},
 	{`hello {{name}}`, map[string]string{"name": "world"}, "hello world", nil},
 	{`{{var}}`, map[string]string{"var": "5 > 2"}, "5 &gt; 2", nil},
@@ -95,6 +104,7 @@ var tests = []Test{
 	{`{{ a }}{{= <% %> =}}<%b %><%= {{ }}=%>{{c}}`, map[string]string{"a": "a", "b": "b", "c": "c"}, "abc", nil},
 
 	// section tests
+	{`{{#A}}`, Data{true, "hello"}, "", parseError{line: 1, message: "Section A has no closing tag"}},
 	{`{{#A}}{{B}}{{/A}}`, Data{true, "hello"}, "hello", nil},
 	{`{{#A}}{{{B}}}{{/A}}`, Data{true, "5 > 2"}, "5 > 2", nil},
 	{`{{#A}}{{B}}{{/A}}`, Data{true, "5 > 2"}, "5 &gt; 2", nil},
@@ -127,6 +137,8 @@ var tests = []Test{
 	{`{{Name}}`, &User{"Mike", 1}, "Mike", nil},
 	{"{{#users}}\n{{Name}}\n{{/users}}", map[string]interface{}{"users": makeVector(2)}, "Mike\nMike\n", nil},
 	{"{{#users}}\r\n{{Name}}\r\n{{/users}}", map[string]interface{}{"users": makeVector(2)}, "Mike\r\nMike\r\n", nil},
+	// section with meta
+	{`{{#a}}{{=<% %>=}}<p><% content %></p><%={{ }}=%>{{/a}}`, map[string]map[string]string{"a": {"content": "Content content"}}, "<p>Content content</p>", nil},
 
 	// falsy: golang zero values
 	{"{{#a}}Hi {{.}}{{/a}}", map[string]interface{}{"a": nil}, "", nil},
@@ -192,7 +204,7 @@ func TestBasic(t *testing.T) {
 	// Default behavior, AllowMissingVariables=true
 	for _, test := range tests {
 		output, err := Render(test.tmpl, test.context)
-		if err != nil {
+		if err != test.err {
 			t.Errorf("%q expected %q but got error %q", test.tmpl, test.expected, err.Error())
 		} else if output != test.expected {
 			t.Errorf("%q expected %q got %q", test.tmpl, test.expected, output)
@@ -204,7 +216,7 @@ func TestBasic(t *testing.T) {
 	defer func() { AllowMissingVariables = true }()
 	for _, test := range tests {
 		output, err := Render(test.tmpl, test.context)
-		if err != nil {
+		if err != test.err {
 			t.Errorf("%s expected %s but got error %s", test.tmpl, test.expected, err.Error())
 		} else if output != test.expected {
 			t.Errorf("%q expected %q got %q", test.tmpl, test.expected, output)
@@ -324,12 +336,14 @@ func TestJSONEscape(t *testing.T) {
 		{`'single quotes'`, `'single quotes'`},
 		{`"double quotes"`, `\"double quotes\"`},
 		{`\backslash\`, `\\backslash\\`},
-		{"some\tcontrol\ncharacters\x1c", `some\tcontrol\ncharacters\u001c`},
+		{"some\tcontrol\ncharacters\x1c\b\f\r", `some\tcontrol\ncharacters\u001c\b\f\r`},
 		{`🦜`, `🦜`},
 	}
 	var buf bytes.Buffer
 	for _, tst := range tests {
-		JSONEscape(&buf, tst.Before)
+		if err := JSONEscape(&buf, tst.Before); err != nil {
+			t.Error(err)
+		}
 		txt := buf.String()
 		if txt != tst.After {
 			t.Errorf("got %s expected %s", txt, tst.After)

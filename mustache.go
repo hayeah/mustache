@@ -650,30 +650,38 @@ func (tmpl *Template) renderSection(section *sectionElement, contextChain []inte
 	return nil
 }
 
-func JSONEscape(dest io.Writer, data string) {
+func JSONEscape(dest io.Writer, data string) error {
 	for _, r := range data {
+		var err error
 		switch r {
 		case '"', '\\':
-			dest.Write([]byte("\\"))
-			dest.Write([]byte(string(r)))
+			_, err = dest.Write([]byte("\\"))
+			if err != nil {
+				break
+			}
+			_, err = dest.Write([]byte(string(r)))
 		case '\n':
-			dest.Write([]byte(`\n`))
+			_, err = dest.Write([]byte(`\n`))
 		case '\b':
-			dest.Write([]byte(`\b`))
+			_, err = dest.Write([]byte(`\b`))
 		case '\f':
-			dest.Write([]byte(`\f`))
+			_, err = dest.Write([]byte(`\f`))
 		case '\r':
-			dest.Write([]byte(`\r`))
+			_, err = dest.Write([]byte(`\r`))
 		case '\t':
-			dest.Write([]byte(`\t`))
+			_, err = dest.Write([]byte(`\t`))
 		default:
 			if unicode.IsControl(r) {
-				dest.Write([]byte(fmt.Sprintf("\\u%04x", r)))
+				_, err = dest.Write([]byte(fmt.Sprintf("\\u%04x", r)))
 			} else {
-				dest.Write([]byte(string(r)))
+				_, err = dest.Write([]byte(string(r)))
 			}
 		}
+		if err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 func getSectionText(elements []interface{}, buf io.Writer) {
@@ -703,12 +711,6 @@ func getElementText(element interface{}, buf io.Writer) {
 	}
 }
 
-func (tmpl *Template) renderSectionElements(elements []interface{}, contextChain []interface{}, buf io.Writer) {
-	for _, elem := range elements {
-		_ = tmpl.renderElement(elem, contextChain, buf)
-	}
-}
-
 func (tmpl *Template) renderElement(element interface{}, contextChain []interface{}, buf io.Writer) error {
 	switch elem := element.(type) {
 	case *textElement:
@@ -732,7 +734,9 @@ func (tmpl *Template) renderElement(element interface{}, contextChain []interfac
 				s := fmt.Sprint(val.Interface())
 				switch tmpl.OutputMode {
 				case EscapeJSON:
-					JSONEscape(buf, s)
+					if err = JSONEscape(buf, s); err != nil {
+						return err
+					}
 				case EscapeHTML:
 					template.HTMLEscape(buf, []byte(s))
 				case Raw:
