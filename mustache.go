@@ -277,8 +277,6 @@ func (tmpl *Template) readTag(mayStandalone bool) (*tagReadingResult, error) {
 	var err error
 	if tmpl.p < len(tmpl.data) && tmpl.data[tmpl.p] == '{' {
 		text, err = tmpl.readString("}" + tmpl.ctag)
-	} else if tmpl.p < len(tmpl.data) && tmpl.data[tmpl.p] == '|' {
-		text, err = tmpl.readString("|" + tmpl.ctag)
 	} else {
 		text, err = tmpl.readString(tmpl.ctag)
 	}
@@ -463,7 +461,7 @@ func (tmpl *Template) parse() error {
 			}
 			tmpl.elems = append(tmpl.elems, partial)
 		case '=':
-			if tag[len(tag)-1] != '=' {
+			if tag[len(tag)-1] != '=' || len(tag) < 2 {
 				return parseError{tmpl.curline, "Invalid meta tag"}
 			}
 			tag = strings.TrimSpace(tag[1 : len(tag)-1])
@@ -550,34 +548,6 @@ Outer:
 		return reflect.Value{}, nil
 	}
 	return reflect.Value{}, fmt.Errorf("missing variable %q", name)
-}
-
-func lookup_r(contextChain []interface{}, name string, allowMissing bool) (reflect.Value, error) {
-	var val reflect.Value
-	var err error
-	if name[0] == '|' {
-		// render recursively
-		rname := strings.Trim(name, "|")
-		recn := 1 + strings.Count(name, "|") / 2
-		i := 0
-		for ; i < recn; i++ {
-			val, err = lookup(contextChain, rname, allowMissing)
-			if err != nil {
-				break
-			}
-			if val.IsValid() {
-				rname = fmt.Sprint(val.Interface())
-			} else {
-				break
-			}
-		}
-		if i == recn {
-			err = nil
-		}
-	} else {
-		val, err = lookup(contextChain, name, allowMissing)
-	}
-	return val, err
 }
 
 func isEmpty(v reflect.Value) bool {
@@ -752,7 +722,7 @@ func (tmpl *Template) renderElement(element interface{}, contextChain []interfac
 				fmt.Printf("Panic while looking up %q: %s\n", elem.name, r)
 			}
 		}()
-		val, err := lookup_r(contextChain, elem.name, AllowMissingVariables)
+		val, err := lookup(contextChain, elem.name, AllowMissingVariables)
 		if err != nil {
 			return err
 		}
