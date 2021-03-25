@@ -2,6 +2,7 @@
 
 [![Go Doc](https://pkg.go.dev/badge/github.com/RumbleDiscovery/mustache)](https://pkg.go.dev/github.com/RumbleDiscovery/mustache)
 [![Go Report Card](https://goreportcard.com/badge/github.com/RumbleDiscovery/mustache)](https://goreportcard.com/report/github.com/RumbleDiscovery/mustache)
+[![Build Status](https://img.shields.io/travis/RumbleDiscovery/mustache.svg)](https://travis-ci.com/github/RumbleDiscovery/mustache/settings)
 [![codecov](https://codecov.io/gh/RumbleDiscovery/mustache/branch/master/graph/badge.svg)](https://codecov.io/gh/RumbleDiscovery/mustache)
 
 <img src="images/logo.jpeg" alt="logo" width="100"/>
