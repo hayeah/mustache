@@ -94,19 +94,21 @@ var tests = []Test{
 	{`{{ a }}{{=<% %>=}}<%b %><%={{ }}=%>{{ c }}`, map[string]string{"a": "a", "b": "b", "c": "c"}, "abc", nil},
 	{`{{ a }}{{= <% %> =}}<%b %><%= {{ }}=%>{{c}}`, map[string]string{"a": "a", "b": "b", "c": "c"}, "abc", nil},
 
-	//section tests
+	// section tests
 	{`{{#A}}{{B}}{{/A}}`, Data{true, "hello"}, "hello", nil},
 	{`{{#A}}{{{B}}}{{/A}}`, Data{true, "5 > 2"}, "5 > 2", nil},
 	{`{{#A}}{{B}}{{/A}}`, Data{true, "5 > 2"}, "5 &gt; 2", nil},
 	{`{{#A}}{{B}}{{/A}}`, Data{false, "hello"}, "", nil},
 	{`{{a}}{{#b}}{{b}}{{/b}}{{c}}`, map[string]string{"a": "a", "b": "b", "c": "c"}, "abc", nil},
-	{`{{#A}}{{B}}{{/A}}`, struct {
-		A []struct {
+	{
+		`{{#A}}{{B}}{{/A}}`,
+		struct {
+			A []struct {
+				B string
+			}
+		}{[]struct {
 			B string
-		}
-	}{[]struct {
-		B string
-	}{{"a"}, {"b"}, {"c"}}},
+		}{{"a"}, {"b"}, {"c"}}},
 		"abc",
 		nil,
 	},
@@ -126,7 +128,7 @@ var tests = []Test{
 	{"{{#users}}\n{{Name}}\n{{/users}}", map[string]interface{}{"users": makeVector(2)}, "Mike\nMike\n", nil},
 	{"{{#users}}\r\n{{Name}}\r\n{{/users}}", map[string]interface{}{"users": makeVector(2)}, "Mike\r\nMike\r\n", nil},
 
-	//falsy: golang zero values
+	// falsy: golang zero values
 	{"{{#a}}Hi {{.}}{{/a}}", map[string]interface{}{"a": nil}, "", nil},
 	{"{{#a}}Hi {{.}}{{/a}}", map[string]interface{}{"a": false}, "", nil},
 	{"{{#a}}Hi {{.}}{{/a}}", map[string]interface{}{"a": 0}, "", nil},
@@ -135,12 +137,12 @@ var tests = []Test{
 	{"{{#a}}Hi {{.}}{{/a}}", map[string]interface{}{"a": Data{}}, "", nil},
 	{"{{#a}}Hi {{.}}{{/a}}", map[string]interface{}{"a": []interface{}{}}, "", nil},
 	{"{{#a}}Hi {{.}}{{/a}}", map[string]interface{}{"a": [0]interface{}{}}, "", nil},
-	//falsy: special cases we disagree with golang
+	// falsy: special cases we disagree with golang
 	{"{{#a}}Hi {{.}}{{/a}}", map[string]interface{}{"a": "\t"}, "", nil},
 	{"{{#a}}Hi {{.}}{{/a}}", map[string]interface{}{"a": []interface{}{0}}, "Hi 0", nil},
 	{"{{#a}}Hi {{.}}{{/a}}", map[string]interface{}{"a": [1]interface{}{0}}, "Hi 0", nil},
 
-	//section does not exist
+	// section does not exist
 	{`{{#has}}{{/has}}`, &User{"Mike", 1}, "", nil},
 
 	// implicit iterator tests
@@ -148,7 +150,7 @@ var tests = []Test{
 	{`"{{#list}}({{.}}){{/list}}"`, map[string]interface{}{"list": []int{1, 2, 3, 4, 5}}, "\"(1)(2)(3)(4)(5)\"", nil},
 	{`"{{#list}}({{.}}){{/list}}"`, map[string]interface{}{"list": []float64{1.10, 2.20, 3.30, 4.40, 5.50}}, "\"(1.1)(2.2)(3.3)(4.4)(5.5)\"", nil},
 
-	//inverted section tests
+	// inverted section tests
 	{`{{a}}{{^b}}b{{/b}}{{c}}`, map[string]interface{}{"a": "a", "b": false, "c": "c"}, "abc", nil},
 	{`{{^a}}b{{/a}}`, map[string]interface{}{"a": false}, "b", nil},
 	{`{{^a}}b{{/a}}`, map[string]interface{}{"a": true}, "", nil},
@@ -156,7 +158,7 @@ var tests = []Test{
 	{`{{^a}}b{{/a}}`, map[string]interface{}{"a": []string{}}, "b", nil},
 	{`{{a}}{{^b}}b{{/b}}{{c}}`, map[string]string{"a": "a", "c": "c"}, "abc", nil},
 
-	//function tests
+	// function tests
 	{`{{#users}}{{Func1}}{{/users}}`, map[string]interface{}{"users": []User{{"Mike", 1}}}, "Mike", nil},
 	{`{{#users}}{{Func1}}{{/users}}`, map[string]interface{}{"users": []*User{{"Mike", 1}}}, "Mike", nil},
 	{`{{#users}}{{Func2}}{{/users}}`, map[string]interface{}{"users": []*User{{"Mike", 1}}}, "Mike", nil},
@@ -170,7 +172,7 @@ var tests = []Test{
 	{`{{#user}}{{#Func5}}{{#Allow}}abcd{{/Allow}}{{/Func5}}{{/user}}`, map[string]interface{}{"user": &User{"Mike", 1}}, "abcd", nil},
 	{`{{#user}}{{#Func6}}{{#Allow}}abcd{{/Allow}}{{/Func6}}{{/user}}`, map[string]interface{}{"user": &User{"Mike", 1}}, "abcd", nil},
 
-	//context chaining
+	// context chaining
 	{`hello {{#section}}{{name}}{{/section}}`, map[string]interface{}{"section": map[string]string{"name": "world"}}, "hello world", nil},
 	{`hello {{#section}}{{name}}{{/section}}`, map[string]interface{}{"name": "bob", "section": map[string]string{"name": "world"}}, "hello world", nil},
 	{`hello {{#bool}}{{#section}}{{name}}{{/section}}{{/bool}}`, map[string]interface{}{"bool": true, "section": map[string]string{"name": "world"}}, "hello world", nil},
@@ -179,7 +181,7 @@ var tests = []Test{
 		"categories": {&Category{"a", "b"}},
 	}, "a - b", nil},
 
-	//dotted names(dot notation)
+	// dotted names(dot notation)
 	{`"{{person.name}}" == "{{#person}}{{name}}{{/person}}"`, map[string]interface{}{"person": map[string]string{"name": "Joe"}}, `"Joe" == "Joe"`, nil},
 	{`"{{{person.name}}}" == "{{#person}}{{{name}}}{{/person}}"`, map[string]interface{}{"person": map[string]string{"name": "Joe"}}, `"Joe" == "Joe"`, nil},
 	{`"{{a.b.c.d.e.name}}" == "Phil"`, map[string]interface{}{"a": map[string]interface{}{"b": map[string]interface{}{"c": map[string]interface{}{"d": map[string]interface{}{"e": map[string]string{"name": "Phil"}}}}}}, `"Phil" == "Phil"`, nil},
@@ -211,11 +213,11 @@ func TestBasic(t *testing.T) {
 }
 
 var missing = []Test{
-	//does not exist
+	// does not exist
 	{`{{dne}}`, map[string]string{"name": "world"}, "", nil},
 	{`{{dne}}`, User{"Mike", 1}, "", nil},
 	{`{{dne}}`, &User{"Mike", 1}, "", nil},
-	//dotted names(dot notation)
+	// dotted names(dot notation)
 	{`"{{a.b.c}}" == ""`, map[string]interface{}{}, `"" == ""`, nil},
 	{`"{{a.b.c.name}}" == ""`, map[string]interface{}{"a": map[string]interface{}{"b": map[string]string{}}, "c": map[string]string{"name": "Jim"}}, `"" == ""`, nil},
 	{`{{#a}}{{b.c}}{{/a}}`, map[string]interface{}{"a": map[string]interface{}{"b": map[string]string{}}, "b": map[string]string{"c": "ERROR"}}, "", nil},
@@ -315,15 +317,15 @@ func TestPartialSafety(t *testing.T) {
 }
 
 func TestJSONEscape(t *testing.T) {
-	tests := []struct{
+	tests := []struct {
 		Before string
-		After string
+		After  string
 	}{
 		{`'single quotes'`, `'single quotes'`},
 		{`"double quotes"`, `\"double quotes\"`},
 		{`\backslash\`, `\\backslash\\`},
 		{"some\tcontrol\ncharacters\x1c", `some\tcontrol\ncharacters\u001c`},
-		{ `🦜`, `🦜`},
+		{`🦜`, `🦜`},
 	}
 	var buf bytes.Buffer
 	for _, tst := range tests {
@@ -337,14 +339,14 @@ func TestJSONEscape(t *testing.T) {
 }
 
 func TestRenderRaw(t *testing.T) {
-	tests := []struct{
+	tests := []struct {
 		Template string
-		Data map[string]interface{}
-		Result string
+		Data     map[string]interface{}
+		Result   string
 	}{
 		{
 			Template: `{{a}} {{b}} {{c}}`,
-			Data: map[string]interface{}{"a": `<a href="">`, "b": "}o&o{", "c": "\t"},
+			Data:     map[string]interface{}{"a": `<a href="">`, "b": "}o&o{", "c": "\t"},
 			Result:   "<a href=\"\"> }o&o{ \t",
 		},
 	}
@@ -365,44 +367,45 @@ func TestRenderRaw(t *testing.T) {
 }
 
 func TestRenderJSON(t *testing.T) {
-
 	type item struct {
 		Emoji string
-		Name string
+		Name  string
 	}
 
-	tests := []struct{
+	tests := []struct {
 		Template string
-		Data map[string]interface{}
-		Result string
+		Data     map[string]interface{}
+		Result   string
 	}{
-		{ Template: `{"a": "{{a}}", "b": "{{b}}", "c": "{{c}}"}`,
-			Data: map[string]interface{}{"a": "Text\nwith\tcontrols", "b": `"I said 'No!'"`, "c": "EOF\u001cHERE"},
-			Result: `{"a": "Text\nwith\tcontrols", "b": "\"I said 'No!'\"", "c": "EOF\u001cHERE"}` },
+		{
+			Template: `{"a": "{{a}}", "b": "{{b}}", "c": "{{c}}"}`,
+			Data:     map[string]interface{}{"a": "Text\nwith\tcontrols", "b": `"I said 'No!'"`, "c": "EOF\u001cHERE"},
+			Result:   `{"a": "Text\nwith\tcontrols", "b": "\"I said 'No!'\"", "c": "EOF\u001cHERE"}`,
+		},
 		{
 			Template: `{"a": [""{{#a}},"{{.}}"{{/a}}]}`,
-			Data:     map[string]interface{}{"a": []int{1,2,3}},
+			Data:     map[string]interface{}{"a": []int{1, 2, 3}},
 			Result:   `{"a": ["","1","2","3"]}`,
 		},
 		{
 			Template: `"{{#values}}{{Emoji}}{{Name}} {{/values}}"`,
-			Data:     map[string]interface{}{
+			Data: map[string]interface{}{
 				"values": interface{}([]item{
-					item{
+					{
 						Emoji: "🟡",
 						Name:  "Rico",
 					},
-					item{
+					{
 						Emoji: "🟢",
 						Name:  "Bruce",
 					},
-					item{
+					{
 						Emoji: "🔵",
 						Name:  "Luna",
 					},
 				}),
 			},
-			Result:   `"🟡Rico 🟢Bruce 🔵Luna "`,
+			Result: `"🟡Rico 🟢Bruce 🔵Luna "`,
 		},
 	}
 	for _, tst := range tests {
@@ -470,9 +473,8 @@ func lambda(text string, render RenderFn, res string, data map[string]interface{
 	data[res] = d
 	if err == nil {
 		return "OK", nil
-	} else {
-		return "", err
 	}
+	return "", err
 }
 
 func TestLambda(t *testing.T) {
@@ -509,7 +511,7 @@ var malformed = []Test{
 	{`{{}}`, nil, "", fmt.Errorf("line 1: empty tag")},
 	{`{{}`, nil, "", fmt.Errorf("line 1: unmatched open tag")},
 	{`{{`, nil, "", fmt.Errorf("line 1: unmatched open tag")},
-	//invalid syntax - https://github.com/hoisie/mustache/issues/10
+	// invalid syntax - https://github.com/hoisie/mustache/issues/10
 	{`{{#a}}{{#b}}{{/a}}{{/b}}}`, map[string]interface{}{}, "", fmt.Errorf("line 1: interleaved closing tag: a")},
 }
 

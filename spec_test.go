@@ -23,7 +23,7 @@ var enabledTests = map[string]map[string]bool{
 		"Indented Multiline Standalone":    true,
 		"Indented Inline":                  true,
 		"Surrounding Whitespace":           true,
-		},
+	},
 	"delimiters.json": {
 		"Pair Behavior":                    true,
 		"Special Characters":               true,
@@ -39,7 +39,7 @@ var enabledTests = map[string]map[string]bool{
 		"Standalone Line Endings":          true,
 		"Standalone Without Previous Line": true,
 		"Standalone Without Newline":       true,
-		},
+	},
 	"interpolation.json": {
 		"No Interpolation":    true,
 		"Basic Interpolation": true,
@@ -73,7 +73,7 @@ var enabledTests = map[string]map[string]bool{
 		"Interpolation With Padding":                   true,
 		"Triple Mustache With Padding":                 true,
 		"Ampersand With Padding":                       true,
-		},
+	},
 	"inverted.json": {
 		"Falsey":                           true,
 		"Truthy":                           true,
@@ -96,7 +96,7 @@ var enabledTests = map[string]map[string]bool{
 		"Standalone Line Endings":          true,
 		"Standalone Without Previous Line": true,
 		"Standalone Without Newline":       true,
-		},
+	},
 	"partials.json": {
 		"Basic Behavior":                   true,
 		"Failed Lookup":                    true,
@@ -109,7 +109,7 @@ var enabledTests = map[string]map[string]bool{
 		"Standalone Without Newline":       true,
 		"Standalone Indentation":           true,
 		"Padding Whitespace":               true,
-		},
+	},
 	"sections.json": {
 		"Truthy":                           true,
 		"Falsey":                           true,
@@ -137,8 +137,8 @@ var enabledTests = map[string]map[string]bool{
 		"Standalone Without Previous Line": true,
 		"Standalone Without Newline":       true,
 		"Padding":                          true,
-		},
-	"~lambdas.json": map[string]bool{
+	},
+	"~lambdas.json": {
 		"Interpolation":                        false,
 		"Interpolation - Expansion":            false,
 		"Interpolation - Alternate Delimiters": false,
@@ -211,9 +211,8 @@ var lambdas = map[string]LambdaFn{
 	"Section": func(text string, render RenderFn) (string, error) {
 		if text == "{{x}}" {
 			return "yes", nil
-		} else {
-			return "no", nil
 		}
+		return "no", nil
 	},
 	"Section - Expansion": func(text string, render RenderFn) (string, error) {
 		return render(fmt.Sprintf("%s{{planet}}%s", text, text))
