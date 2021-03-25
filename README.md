@@ -2,7 +2,7 @@
 
 [![Go Doc](https://pkg.go.dev/badge/github.com/RumbleDiscovery/mustache)](https://pkg.go.dev/github.com/RumbleDiscovery/mustache)
 [![Go Report Card](https://goreportcard.com/badge/github.com/RumbleDiscovery/mustache)](https://goreportcard.com/report/github.com/RumbleDiscovery/mustache)
-
+[![codecov](https://codecov.io/gh/RumbleDiscovery/mustache/branch/master/graph/badge.svg)](https://codecov.io/gh/RumbleDiscovery/mustache)
 
 <img src="images/logo.jpeg" alt="logo" width="100"/>
 
@@ -10,9 +10,10 @@
 
 ## Why a fork?
 
-I forked [cbroglie/mustache](https://github.com/cbroglie/mustache) because it does not appear to be maintained, and I wanted to add the following functionality:
+I forked [cbroglie/mustache](https://github.com/cbroglie/mustache) because it does not appear to be maintained, and I
+wanted to add the following functionality:
 
-- Add support for JSON and plain text escaping modes modes (for example, for templating e-mail, or JSON messages for Slack notifications).
+- Add support for JSON and plain text escaping modes (for example, for templating e-mail, or JSON messages for Slack notifications).
 - Add [a previously submitted patch for lambda support](https://github.com/cbroglie/mustache/pull/28).
 
 I also wanted to clear up some security holes, including two found by fuzzing.

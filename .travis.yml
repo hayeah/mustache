@@ -4,8 +4,11 @@ go:
   - 1.16.x
   - master
 
-script: make ci
+before_install:
+  - go get -t -v ./...
+
+script:
+  - go test -race -coverprofile=coverage.txt -covermode=atomic
 
 after_success:
-- curl -sL https://codecov.io/bash | bash
-# - test -n "$TRAVIS_TAG" && curl -sL https://git.io/goreleaser | bash
+  - bash <(curl -s https://codecov.io/bash)
