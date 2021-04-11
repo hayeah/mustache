@@ -328,6 +328,20 @@ func TestPartialSafety(t *testing.T) {
 	}
 }
 
+func TestPartialSafetyWindows(t *testing.T) {
+	tmpl, err := ParseString("{{>spec/..\\..\\test.txt}}")
+	if err != nil {
+		t.Error(err)
+	}
+	txt, err := tmpl.Render(nil)
+	if err == nil {
+		t.Errorf("expected error for unsafe partial")
+	}
+	if txt != "" {
+		t.Errorf("expected unsafe partial to fail")
+	}
+}
+
 func TestJSONEscape(t *testing.T) {
 	tests := []struct {
 		Before string

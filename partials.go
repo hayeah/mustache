@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"path"
+	"path/filepath"
 	"regexp"
 	"strings"
 )
@@ -32,14 +32,16 @@ type FileProvider struct {
 
 // Get accepts the name of a partial and returns the parsed partial.
 func (fp *FileProvider) Get(name string) (string, error) {
-	var cleanname string
-	if fp.Unsafe {
-		cleanname = name
-	} else {
-		cleanname = path.Clean(name)
-		if strings.HasPrefix(cleanname, ".") {
+	clean := name
+	if !fp.Unsafe {
+		// Use a '/' prefix so filepath.Clean can prevent a directory traversal
+		cname := "/" + strings.Trim(name, "/\\")
+		cname = strings.ReplaceAll(filepath.Clean(cname), "\\", "/")
+		cname = strings.TrimLeft(cname, "/")
+		if cname != name || cname == "" {
 			return "", fmt.Errorf("unsafe partial name passed to FileProvider: %s", name)
 		}
+		clean = cname
 	}
 
 	var paths []string
@@ -60,7 +62,7 @@ func (fp *FileProvider) Get(name string) (string, error) {
 	var err error
 	for _, p := range paths {
 		for _, e := range exts {
-			pname := path.Join(p, name+e)
+			pname := filepath.Join(p, clean+e)
 			f, err = os.Open(pname)
 			if err == nil {
 				break
