@@ -610,7 +610,7 @@ func (tmpl *Template) renderSection(section *sectionElement, contextChain []inte
 			var text bytes.Buffer
 			getSectionText(section.elems, &text)
 			render := func(text string) (string, error) {
-				templ, err := ParseString(text)
+				templ, err := ParseStringPartialsRaw(text, tmpl.partial, false)
 				if err != nil {
 					return "", err
 				}
