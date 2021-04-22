@@ -1,6 +1,6 @@
-module github.com/RumbleDiscovery/mustache
+module github.com/RumbleDiscovery/mustache/v2
 
-go 1.14
+go 1.16
 
 require (
 	github.com/golangci/golangci-lint v1.28.3

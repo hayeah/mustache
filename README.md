@@ -16,6 +16,7 @@ wanted to add the following functionality:
 
 - Add support for JSON and plain text escaping modes (for example, for templating e-mail, or JSON messages for Slack notifications).
 - Add [a previously submitted patch for lambda support](https://github.com/cbroglie/mustache/pull/28).
+- Add a fluent API.
 
 I also wanted to clear up some security holes, including two found by fuzzing.
 
@@ -29,8 +30,8 @@ as [Mario](https://github.com/imantung/mario).
 ## CLI overview
 
 ```bash
-➜  ~ go get github.com/RumbleDiscovery/mustache/...
-➜  ~ mustache
+% go get github.com/RumbleDiscovery/mustache/...
+% mustache
 Usage:
   mustache [data] template [flags]
 
@@ -44,7 +45,7 @@ Flags:
   -h, --help   help for mustache
   --layout     a file to use as the layout template
   --override   a data.yml file whose definitions supercede data.yml
-➜  ~
+%
 ```
 
 ----
@@ -78,38 +79,54 @@ To install mustache.go, simply run `go get github.com/RumbleDiscovery/mustache/.
 
 ## Usage
 
-There are four main methods in this package:
+Starting with version 2, a fluent API is provided, and compilation and rendering of templates is performed as separate
+steps, with separate error returns. This makes it easier to distinguish between syntactically invalid templates, and
+errors at render time.
+
+First, use `mustache.New()` to obtain a Compiler. You can then set options on the compiler:
 
 ```go
-Render(data string, context ...interface{}) (string, error)
+cmpl, _ := mustache.New()
+cmpl.WithErrors(true)
+cmpl.WithPartials(&FileProvider{
+	Paths: []string{"/app/templates"},
+	Extensions: []string{".html", ".mustache"}
+})
+cmpl.WithEscapeMode(mustache.EscapeHTML)
+```
 
-RenderFile(filename string, context ...interface{}) (string, error)
+Then you can use the compiler you've configured to compile your template(s):
 
-ParseString(data string) (*Template, error)
+```go
+tmpl1, err := cmpl.CompileString("This is {{mustache}}")
+tmpl2, err := cmpl.CompileFile("main.mustache")
+```
 
-ParseFile(filename string) (*Template, error)
+Finally, you can render the compiled templates using any number of contextual data objects, generally expected to be `map[string]interface{}` or a `struct`:
+
+```go
+output, err := tmpl1.Render(map[string]string{"mustache":"awesome!"})
+```
+
+The compiler options can be chained together:
+
+```go
+tmpl, err := mustache.New().WithErrors(true).CompileString("This is {{mustache}}")
 ```
 
 There are also two additional methods for using layouts (explained below); as well as several more that can provide a
 custom Partial retrieval.
 
-The `Render` method takes a string and a data source, which is generally a map or struct, and returns the output string.
-If the template file contains an error, the return value is a description of the error. There's a similar
-method, `RenderFile`, which takes a filename as an argument and uses that for the template contents.
+Unlike in the v1 API, the defaults for the compiler are intended to be safe, with no partial support -- you have to
+provide a PartialProvider explicitly if you want to use partials. So by default you get:
 
-```go
-data, err := mustache.Render("hello {{c}}", map[string]string{"c": "world"})
-```
+ - No partials
+ - No errors when data is missing from the context
+ - HTML escaping
 
-If you're planning to render the same template multiple times, you do it efficiently by compiling the template first:
-
-```go
-tmpl, _ := mustache.ParseString("hello {{c}}")
-var buf bytes.Buffer
-for i := 0; i < 10; i++ {
-    tmpl.FRender(&buf, map[string]string{"c": "world"})
-}
-```
+There are no longer functions to render a template without compiling to a `*Template` object. The engine always compiles
+even if you throw the template away when you're done with it, so there's no speed benefit to having a non-compiling
+option.
 
 For more example usage, please see `mustache_test.go`
 
@@ -122,9 +139,9 @@ curly brackets, `{{var}}`, the contents are HTML-escaped. For instance, strings 
 To use raw characters, use three curly brackets `{{{var}}}`.
 
 This implementation of Mustache also allows you to run the engine in JSON mode, in which case the standard JSON quoting
-rules are used. To do this, compile the template then set `tmpl.OutputMode = mustache.EscapeJSON`. Note that the JSON
-escaping rules are different from the rules used by Go's text/template.JSEscape, and do not guarantee that the JSON will
-be safe to include as part of an HTML page.
+rules are used. To do this, use `.WithEscapeMode(mustache.JSON)` to set the escape mode on the compiler. Note that the
+JSON escaping rules are different from the rules used by Go's text/template.JSEscape, and do not guarantee that the JSON
+will be safe to include as part of an HTML page.
 
 A third mode of `mustache.Raw` allows the use of Mustache templates to generate plain text, such as e-mail messages and
 console application help text.
@@ -134,15 +151,13 @@ console application help text.
 ## Layouts
 
 It is a common pattern to include a template file as a "wrapper" for other templates. The wrapper may include a header
-and a footer, for instance. Mustache.go supports this pattern with the following two methods:
+and a footer, for instance. Mustache.go supports this pattern with the following method:
 
 ```go
-RenderInLayout(data string, layout string, context ...interface{}) (string, error)
-
-RenderFileInLayout(filename string, layoutFile string, context ...interface{}) (string, error)
+(contentTemplate *Template) RenderInLayout(layoutTemplate *Template, context ...interface{}) (string, error)
 ```
 
-The layout file must have a variable called `{{content}}`. For example, given the following files:
+The layout must have a variable called `{{content}}`. For example, given the following files:
 
 layout.html.mustache:
 
@@ -161,7 +176,14 @@ template.html.mustache:
 <h1>Hello World!</h1>
 ```
 
-A call to `RenderFileInLayout("template.html.mustache", "layout.html.mustache", nil)` will produce:
+...and suitable code to load and compile them:
+
+```go
+template, _ := mustache.New().CompileFile("template.html.mustache")
+layout, _ := mustache.New().CompileFile("layout.html.mustache")
+```
+
+A call to `template.RenderInLayout(layout)` will produce:
 
 ```html
 <html>
@@ -176,28 +198,11 @@ A call to `RenderFileInLayout("template.html.mustache", "layout.html.mustache", 
 
 ## Custom PartialProvider
 
-Mustache.go has been extended to support a user-defined repository for mustache partials, instead of the default of
-requiring file-based templates.
+Mustache supports user-defined repositories for mustache partials.
 
-Several new top-level functions have been introduced to take advantage of this:
-
-```go
-
-func RenderPartials(data string, partials PartialProvider, context ...interface{}) (string, error)
-
-func RenderInLayoutPartials(data string, layoutData string, partials PartialProvider, context ...interface{}) (string, error)
-
-func ParseStringPartials(data string, partials PartialProvider) (*Template, error)
-
-func ParseFilePartials(filename string, partials PartialProvider) (*Template, error)
-
-```
-
-A `PartialProvider` is any object that responds to `Get(string)
-(*Template,error)`, and two examples are provided- a `FileProvider` that
-recreates the old behavior (and is indeed used internally for backwards
-compatibility); and a `StaticProvider` alias for a `map[string]string`. Using
-either of these is simple:
+A `PartialProvider` is any object that responds to `Get(string) (*Template,error)`, and two examples are provided -- 
+a `FileProvider` that loads files from disk, and a `StaticProvider` alias for a `map[string]string`. Using either 
+of these is simple:
 
 ```go
 
@@ -206,14 +211,14 @@ fp := &FileProvider{
   Extensions: []string{ "", ".stache", ".mustache" },
 }
 
-tmpl, err := ParseStringPartials("This partial is loaded from a file: {{>foo}}", fp)
+tmpl, err := mustache.New().WithPartials(fp).CompileString("This partial is loaded from a file: {{>foo}}")
 
 sp := StaticProvider(map[string]string{
   "foo": "{{>bar}}",
   "bar": "some data",
 })
 
-tmpl, err := ParseStringPartials("This partial is loaded from a map: {{>foo}}", sp)
+tmpl, err := mustache.New().WithPartials(sp).CompileString("This partial is loaded from a map: {{>foo}}", sp)
 ```
 
 ----
@@ -245,7 +250,7 @@ design in the Go language.
 So if you write the following:
 
 ```go
-mustache.Render("{{Name1}}", Person{"John", "Smith"})
+tmpl.Render("{{Name1}}", Person{"John", "Smith"})
 ```
 
 It'll be blank. You either have to use `&Person{"John", "Smith"}`, or call `Name2`

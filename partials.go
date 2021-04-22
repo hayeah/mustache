@@ -1,6 +1,7 @@
 package mustache
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -71,7 +72,7 @@ func (fp *FileProvider) Get(name string) (string, error) {
 	}
 
 	if f == nil {
-		return "", nil
+		return "", fmt.Errorf("%s: partial not found", name) // nil
 	}
 	defer f.Close()
 
@@ -104,7 +105,10 @@ func (sp *StaticProvider) Get(name string) (string, error) {
 
 var _ PartialProvider = (*StaticProvider)(nil)
 
-func getPartials(partials PartialProvider, name, indent string) (*Template, error) {
+func (tmpl *Template) getPartials(partials PartialProvider, name, indent string) (*Template, error) {
+	if partials == nil {
+		return nil, errors.New("no partial provider specified")
+	}
 	data, err := partials.Get(name)
 	if err != nil {
 		return nil, err
@@ -114,5 +118,5 @@ func getPartials(partials PartialProvider, name, indent string) (*Template, erro
 	r := regexp.MustCompile(`(?m:^(.+)$)`)
 	data = r.ReplaceAllString(data, indent+"$1")
 
-	return ParseStringPartials(data, partials)
+	return tmpl.parent.CompileString(data) //, partials)
 }

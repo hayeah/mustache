@@ -6,27 +6,70 @@ import (
 	"html/template"
 	"io"
 	"io/ioutil"
-	"os"
-	"path"
 	"reflect"
 	"strconv"
 	"strings"
 	"unicode"
 )
 
-// AllowMissingVariables defines the behavior for a variable "miss." If it
-// is true (the default), an empty string is emitted. If it is false, an error
-// is generated instead.
-var AllowMissingVariables = true
-
 // RenderFn is the signature of a function which can be called from a lambda section
 type RenderFn func(text string) (string, error)
+
+type Compiler struct {
+	partial        PartialProvider
+	outputMode     EscapeMode
+	errorOnMissing bool
+}
+
+func New() *Compiler {
+	return &Compiler{}
+}
+
+// WithPartials adds a partial provider and enables support for partials.
+func (r *Compiler) WithPartials(pp PartialProvider) *Compiler {
+	r.partial = pp
+	return r
+}
+
+// WithEscapeMode sets the output mode to either HTML, JSON or raw (plain text).
+// The default is HTML.
+func (r *Compiler) WithEscapeMode(m EscapeMode) *Compiler {
+	r.outputMode = m
+	return r
+}
+
+// WithErrors enables errors when there is a missing data object referred to by the template, a missing partial,
+// or a missing partial provider to handle a partial. Otherwise, errors are ignored and result in empty strings in the
+// output.
+func (r *Compiler) WithErrors(b bool) *Compiler {
+	r.errorOnMissing = b
+	return r
+}
+
+// CompileString compiles a Mustache template from a string.
+func (r *Compiler) CompileString(data string) (*Template, error) {
+	tmpl := Template{data, "{{", "}}", 0, 1, []interface{}{}, false, r.partial, r.outputMode, r.errorOnMissing, r}
+	err := tmpl.parse()
+	if err != nil {
+		return nil, err
+	}
+	return &tmpl, nil
+}
+
+// CompileFile compiles a Mustache template from a file.
+func (r *Compiler) CompileFile(filename string) (*Template, error) {
+	data, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return nil, err
+	}
+	return r.CompileString(string(data))
+}
 
 // A TagType represents the specific type of mustache tag that a Tag
 // represents. The zero TagType is not a valid type.
 type TagType uint
 
-// Defines representing the possible Tag types
+// Defines representing the possible Tag types.
 const (
 	Invalid TagType = iota
 	Variable
@@ -106,19 +149,19 @@ const (
 	Raw                          // Do not escape output (plain text mode)
 )
 
-// Template represents a compiled mustache template.
+// Template represents a compiled mustache template which can be used to render data.
 type Template struct {
-	data     string
-	otag     string
-	ctag     string
-	p        int
-	curline  int
-	elems    []interface{}
-	forceRaw bool
-	partial  PartialProvider
-	// OutputMode can be set to indicate what sort of output the template is expected to produce. This switches
-	// the escaping into an appropriate mode for HTML (default), JSON, or plain text.
-	OutputMode EscapeMode
+	data           string
+	otag           string
+	ctag           string
+	p              int
+	curline        int
+	elems          []interface{}
+	forceRaw       bool
+	partial        PartialProvider
+	outputMode     EscapeMode
+	errorOnMissing bool
+	parent         *Compiler
 }
 
 type parseError struct {
@@ -126,7 +169,7 @@ type parseError struct {
 	message string
 }
 
-// Tags returns the mustache tags for the given template
+// Tags returns the mustache tags for the given template.
 func (tmpl *Template) Tags() []Tag {
 	return extractTags(tmpl.elems)
 }
@@ -485,16 +528,16 @@ func (tmpl *Template) parse() error {
 
 // Evaluate interfaces and pointers looking for a value that can look up the name, via a
 // struct field, method, or map key, and return the result of the lookup.
-func lookup(contextChain []interface{}, name string, allowMissing bool) (reflect.Value, error) {
+func lookup(contextChain []interface{}, name string, errorOnMissing bool) (reflect.Value, error) {
 	// dot notation
 	if name != "." && strings.Contains(name, ".") {
 		parts := strings.SplitN(name, ".", 2)
 
-		v, err := lookup(contextChain, parts[0], allowMissing)
+		v, err := lookup(contextChain, parts[0], errorOnMissing)
 		if err != nil {
 			return v, err
 		}
-		return lookup([]interface{}{v}, parts[1], allowMissing)
+		return lookup([]interface{}{v}, parts[1], errorOnMissing)
 	}
 
 	defer func() {
@@ -542,7 +585,7 @@ Outer:
 			}
 		}
 	}
-	if allowMissing {
+	if !errorOnMissing {
 		return reflect.Value{}, nil
 	}
 	return reflect.Value{}, fmt.Errorf("missing variable %q", name)
@@ -583,7 +626,7 @@ loop:
 }
 
 func (tmpl *Template) renderSection(section *sectionElement, contextChain []interface{}, buf io.Writer) error {
-	value, err := lookup(contextChain, section.name, true)
+	value, err := lookup(contextChain, section.name, tmpl.errorOnMissing)
 	if err != nil {
 		return err
 	}
@@ -610,7 +653,7 @@ func (tmpl *Template) renderSection(section *sectionElement, contextChain []inte
 			var text bytes.Buffer
 			getSectionText(section.elems, &text)
 			render := func(text string) (string, error) {
-				templ, err := ParseStringPartialsRaw(text, tmpl.partial, false)
+				templ, err := tmpl.parent.CompileString(text)
 				if err != nil {
 					return "", err
 				}
@@ -722,7 +765,7 @@ func (tmpl *Template) renderElement(element interface{}, contextChain []interfac
 				fmt.Printf("Panic while looking up %q: %s\n", elem.name, r)
 			}
 		}()
-		val, err := lookup(contextChain, elem.name, AllowMissingVariables)
+		val, err := lookup(contextChain, elem.name, tmpl.errorOnMissing)
 		if err != nil {
 			return err
 		}
@@ -732,7 +775,7 @@ func (tmpl *Template) renderElement(element interface{}, contextChain []interfac
 				fmt.Fprint(buf, val.Interface())
 			} else {
 				s := fmt.Sprint(val.Interface())
-				switch tmpl.OutputMode {
+				switch tmpl.outputMode {
 				case EscapeJSON:
 					if err = JSONEscape(buf, s); err != nil {
 						return err
@@ -751,9 +794,12 @@ func (tmpl *Template) renderElement(element interface{}, contextChain []interfac
 			return err
 		}
 	case *partialElement:
-		partial, err := getPartials(elem.prov, elem.name, elem.indent)
+		partial, err := tmpl.getPartials(elem.prov, elem.name, elem.indent)
 		if err != nil {
-			return err
+			if tmpl.errorOnMissing {
+				return err
+			}
+			return nil
 		}
 		if err := partial.renderTemplate(contextChain, buf); err != nil {
 			return err
@@ -771,9 +817,9 @@ func (tmpl *Template) renderTemplate(contextChain []interface{}, buf io.Writer) 
 	return nil
 }
 
-// FRender uses the given data source - generally a map or struct - to
+// Frender uses the given data source - generally a map or struct - to
 // render the compiled template to an io.Writer.
-func (tmpl *Template) FRender(out io.Writer, context ...interface{}) error {
+func (tmpl *Template) Frender(out io.Writer, context ...interface{}) error {
 	var contextChain []interface{}
 	for _, c := range context {
 		val := reflect.ValueOf(c)
@@ -786,7 +832,7 @@ func (tmpl *Template) FRender(out io.Writer, context ...interface{}) error {
 // the compiled template and return the output.
 func (tmpl *Template) Render(context ...interface{}) (string, error) {
 	var buf bytes.Buffer
-	err := tmpl.FRender(&buf, context...)
+	err := tmpl.Frender(&buf, context...)
 	return buf.String(), err
 }
 
@@ -813,189 +859,5 @@ func (tmpl *Template) FRenderInLayout(out io.Writer, layout *Template, context .
 	allContext := make([]interface{}, len(context)+1)
 	copy(allContext[1:], context)
 	allContext[0] = map[string]string{"content": content}
-	return layout.FRender(out, allContext...)
-}
-
-// ParseString compiles a mustache template string. The resulting output can
-// be used to efficiently render the template multiple times with different data
-// sources.
-func ParseString(data string) (*Template, error) {
-	return ParseStringRaw(data, false)
-}
-
-// ParseStringRaw compiles a mustache template string. The resulting output can
-// be used to efficiently render the template multiple times with different data
-// sources.
-func ParseStringRaw(data string, forceRaw bool) (*Template, error) {
-	cwd, err := os.Getwd()
-	if err != nil {
-		return nil, err
-	}
-	partials := &FileProvider{
-		Paths: []string{cwd},
-	}
-
-	return ParseStringPartialsRaw(data, partials, forceRaw)
-}
-
-// ParseStringPartials compiles a mustache template string, retrieving any
-// required partials from the given provider. The resulting output can be used
-// to efficiently render the template multiple times with different data
-// sources.
-func ParseStringPartials(data string, partials PartialProvider) (*Template, error) {
-	return ParseStringPartialsRaw(data, partials, false)
-}
-
-// ParseStringPartialsRaw compiles a mustache template string, retrieving any
-// required partials from the given provider. The resulting output can be used
-// to efficiently render the template multiple times with different data
-// sources.
-func ParseStringPartialsRaw(data string, partials PartialProvider, forceRaw bool) (*Template, error) {
-	tmpl := Template{data, "{{", "}}", 0, 1, []interface{}{}, forceRaw, partials, EscapeHTML}
-	err := tmpl.parse()
-	if err != nil {
-		return nil, err
-	}
-
-	return &tmpl, err
-}
-
-// ParseFile loads a mustache template string from a file and compiles it. The
-// resulting output can be used to efficiently render the template multiple
-// times with different data sources.
-func ParseFile(filename string) (*Template, error) {
-	dirname, _ := path.Split(filename)
-	partials := &FileProvider{
-		Paths: []string{dirname},
-	}
-
-	return ParseFilePartials(filename, partials)
-}
-
-// ParseFilePartials loads a mustache template string from a file, retrieving any
-// required partials from the given provider, and compiles it. The resulting
-// output can be used to efficiently render the template multiple times with
-// different data sources.
-func ParseFilePartials(filename string, partials PartialProvider) (*Template, error) {
-	return ParseFilePartialsRaw(filename, false, partials)
-}
-
-// ParseFilePartialsRaw loads a mustache template string from a file, retrieving
-// any required partials from the given provider, and compiles it. The resulting
-// output can be used to efficiently render the template multiple times with
-// different data sources.
-func ParseFilePartialsRaw(filename string, forceRaw bool, partials PartialProvider) (*Template, error) {
-	data, err := ioutil.ReadFile(filename)
-	if err != nil {
-		return nil, err
-	}
-
-	tmpl := Template{string(data), "{{", "}}", 0, 1, []interface{}{}, forceRaw, partials, EscapeHTML}
-	err = tmpl.parse()
-
-	if err != nil {
-		return nil, err
-	}
-
-	return &tmpl, nil
-}
-
-// Render compiles a mustache template string and uses the the given data source
-// - generally a map or struct - to render the template and return the output.
-func Render(data string, context ...interface{}) (string, error) {
-	return RenderRaw(data, false, context...)
-}
-
-// RenderRaw compiles a mustache template string and uses the the given data
-// source - generally a map or struct - to render the template and return the
-// output.
-func RenderRaw(data string, forceRaw bool, context ...interface{}) (string, error) {
-	return RenderPartialsRaw(data, nil, forceRaw, context...)
-}
-
-// RenderPartials compiles a mustache template string and uses the the given partial
-// provider and data source - generally a map or struct - to render the template
-// and return the output.
-func RenderPartials(data string, partials PartialProvider, context ...interface{}) (string, error) {
-	return RenderPartialsRaw(data, partials, false, context...)
-}
-
-// RenderPartialsRaw compiles a mustache template string and uses the the given
-// partial provider and data source - generally a map or struct - to render the
-// template and return the output.
-func RenderPartialsRaw(data string, partials PartialProvider, forceRaw bool, context ...interface{}) (string, error) {
-	var tmpl *Template
-	var err error
-	if partials == nil {
-		tmpl, err = ParseStringRaw(data, forceRaw)
-	} else {
-		tmpl, err = ParseStringPartialsRaw(data, partials, forceRaw)
-	}
-	if err != nil {
-		return "", err
-	}
-	return tmpl.Render(context...)
-}
-
-// RenderInLayout compiles a mustache template string and layout "wrapper" and
-// uses the given data source - generally a map or struct - to render the
-// compiled templates and return the output.
-func RenderInLayout(data string, layoutData string, context ...interface{}) (string, error) {
-	return RenderInLayoutPartials(data, layoutData, nil, context...)
-}
-
-// RenderInLayoutPartials compiles a mustache template string and layout
-// "wrapper" and uses the given data source - generally a map or struct - to
-// render the compiled templates and return the output.
-func RenderInLayoutPartials(data string, layoutData string, partials PartialProvider, context ...interface{}) (string, error) {
-	var layoutTmpl, tmpl *Template
-	var err error
-	if partials == nil {
-		layoutTmpl, err = ParseString(layoutData)
-	} else {
-		layoutTmpl, err = ParseStringPartials(layoutData, partials)
-	}
-	if err != nil {
-		return "", err
-	}
-
-	if partials == nil {
-		tmpl, err = ParseString(data)
-	} else {
-		tmpl, err = ParseStringPartials(data, partials)
-	}
-
-	if err != nil {
-		return "", err
-	}
-
-	return tmpl.RenderInLayout(layoutTmpl, context...)
-}
-
-// RenderFile loads a mustache template string from a file and compiles it, and
-// then uses the the given data source - generally a map or struct - to render
-// the template and return the output.
-func RenderFile(filename string, context ...interface{}) (string, error) {
-	tmpl, err := ParseFile(filename)
-	if err != nil {
-		return "", err
-	}
-	return tmpl.Render(context...)
-}
-
-// RenderFileInLayout loads a mustache template string and layout "wrapper"
-// template string from files and compiles them, and  then uses the the given
-// data source - generally a map or struct - to render the compiled templates
-// and return the output.
-func RenderFileInLayout(filename string, layoutFile string, context ...interface{}) (string, error) {
-	layoutTmpl, err := ParseFile(layoutFile)
-	if err != nil {
-		return "", err
-	}
-
-	tmpl, err := ParseFile(filename)
-	if err != nil {
-		return "", err
-	}
-	return tmpl.RenderInLayout(layoutTmpl, context...)
+	return layout.Frender(out, allContext...)
 }

@@ -203,25 +203,33 @@ var tests = []Test{
 func TestBasic(t *testing.T) {
 	// Default behavior, AllowMissingVariables=true
 	for _, test := range tests {
-		output, err := Render(test.tmpl, test.context)
+		tm, err := New().CompileString(test.tmpl)
+		var output string
+		if err == nil && tm != nil {
+			output, err = tm.Render(test.tmpl, test.context)
+		}
 		if err != test.err {
-			t.Errorf("%q expected %q but got error %q", test.tmpl, test.expected, err.Error())
+			t.Errorf("%q expected %q but got error %v", test.tmpl, test.expected, err)
 		} else if output != test.expected {
 			t.Errorf("%q expected %q got %q", test.tmpl, test.expected, output)
 		}
 	}
+	/*
+		for _, test := range tests {
+			tm, err := ParseString(test.tmpl)
+			var output string
+			if err == nil && tm != nil {
+				tm.errorOnMissing = true
+				output, err = tm.Render(test.tmpl, test.context)
+			}
+			if err != test.err {
+				t.Errorf("%s expected %s but got error %s", test.tmpl, test.expected, err.Error())
+			} else if output != test.expected {
+				t.Errorf("%q expected %q got %q", test.tmpl, test.expected, output)
+			}
+		}
 
-	// Now set AllowMissingVariables=false and test again
-	AllowMissingVariables = false
-	defer func() { AllowMissingVariables = true }()
-	for _, test := range tests {
-		output, err := Render(test.tmpl, test.context)
-		if err != test.err {
-			t.Errorf("%s expected %s but got error %s", test.tmpl, test.expected, err.Error())
-		} else if output != test.expected {
-			t.Errorf("%q expected %q got %q", test.tmpl, test.expected, output)
-		}
-	}
+	*/
 }
 
 var missing = []Test{
@@ -238,19 +246,23 @@ var missing = []Test{
 func TestMissing(t *testing.T) {
 	// Default behavior, AllowMissingVariables=true
 	for _, test := range missing {
-		output, err := Render(test.tmpl, test.context)
+		cmpl, err := New().CompileString(test.tmpl)
 		if err != nil {
 			t.Error(err)
-		} else if output != test.expected {
+		}
+		output, err := cmpl.Render(test.context)
+		if output != test.expected {
 			t.Errorf("%q expected %q got %q", test.tmpl, test.expected, output)
 		}
 	}
 
 	// Now set AllowMissingVariables=false and confirm we get errors.
-	AllowMissingVariables = false
-	defer func() { AllowMissingVariables = true }()
 	for _, test := range missing {
-		output, err := Render(test.tmpl, test.context)
+		tm, err := New().WithErrors(true).CompileString(test.tmpl)
+		if err != nil {
+			t.Error(err)
+		}
+		output, err := tm.Render(test.tmpl, test.context)
 		if err == nil {
 			t.Errorf("%q expected missing variable error but got %q", test.tmpl, output)
 		} else if !strings.Contains(err.Error(), "missing variable") {
@@ -262,7 +274,11 @@ func TestMissing(t *testing.T) {
 func TestFile(t *testing.T) {
 	filename := path.Join(path.Join(os.Getenv("PWD"), "tests"), "test1.mustache")
 	expected := "hello world"
-	output, err := RenderFile(filename, map[string]string{"name": "world"})
+	cmpl, err := New().CompileFile(filename)
+	if err != nil {
+		t.Error(err)
+	}
+	output, err := cmpl.Render(map[string]string{"name": "world"})
 	if err != nil {
 		t.Error(err)
 	} else if output != expected {
@@ -273,12 +289,12 @@ func TestFile(t *testing.T) {
 func TestFRender(t *testing.T) {
 	filename := path.Join(path.Join(os.Getenv("PWD"), "tests"), "test1.mustache")
 	expected := "hello world"
-	tmpl, err := ParseFile(filename)
+	tmpl, err := New().CompileFile(filename)
 	if err != nil {
 		t.Fatal(err)
 	}
 	var buf bytes.Buffer
-	err = tmpl.FRender(&buf, map[string]string{"name": "world"})
+	err = tmpl.Frender(&buf, map[string]string{"name": "world"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -289,9 +305,16 @@ func TestFRender(t *testing.T) {
 }
 
 func TestPartial(t *testing.T) {
-	filename := path.Join(path.Join(os.Getenv("PWD"), "tests"), "test2.mustache")
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Error(err)
+	}
+	testdir := path.Join(cwd, "tests")
+	filename := path.Join(testdir, "test2.mustache")
 	expected := "hello world"
-	tmpl, err := ParseFile(filename)
+	tmpl, err := New().WithErrors(true).
+		WithPartials(&FileProvider{Paths: []string{testdir}, Extensions: []string{".mustache"}}).
+		CompileFile(filename)
 	if err != nil {
 		t.Error(err)
 		return
@@ -315,7 +338,7 @@ func TestPartial(t *testing.T) {
 }
 
 func TestPartialSafety(t *testing.T) {
-	tmpl, err := ParseString("{{>../unsafe}}")
+	tmpl, err := New().WithErrors(true).WithPartials(&FileProvider{}).CompileString("{{>../unsafe}}")
 	if err != nil {
 		t.Error(err)
 	}
@@ -329,7 +352,7 @@ func TestPartialSafety(t *testing.T) {
 }
 
 func TestPartialSafetyWindows(t *testing.T) {
-	tmpl, err := ParseString("{{>spec/..\\..\\test.txt}}")
+	tmpl, err := New().WithErrors(true).WithPartials(&FileProvider{}).CompileString("{{>spec/..\\..\\test.txt}}")
 	if err != nil {
 		t.Error(err)
 	}
@@ -379,11 +402,10 @@ func TestRenderRaw(t *testing.T) {
 		},
 	}
 	for _, tst := range tests {
-		tmpl, err := ParseString(tst.Template)
+		tmpl, err := New().WithEscapeMode(Raw).CompileString(tst.Template)
 		if err != nil {
 			t.Error(err)
 		}
-		tmpl.OutputMode = Raw
 		txt, err := tmpl.Render(tst.Data)
 		if err != nil {
 			t.Error(err)
@@ -437,11 +459,11 @@ func TestRenderJSON(t *testing.T) {
 		},
 	}
 	for _, tst := range tests {
-		tmpl, err := ParseString(tst.Template)
+		tmpl, err := New().WithEscapeMode(EscapeJSON).CompileString(tst.Template)
 		if err != nil {
 			t.Error(err)
 		}
-		tmpl.OutputMode = EscapeJSON
+		tmpl.outputMode = EscapeJSON
 		txt, err := tmpl.Render(tst.Data)
 		if err != nil {
 			t.Error(err)
@@ -461,7 +483,7 @@ func TestCrashers(t *testing.T) {
 	}
 	for i, c := range crashers {
 		t.Log(i)
-		_, err := ParseString(c)
+		_, err := New().CompileString(c)
 		if err == nil {
 			t.Error(err)
 		}
@@ -480,19 +502,24 @@ func TestSectionPartial(t *testing.T) {
 }
 */
 func TestMultiContext(t *testing.T) {
-	output, err := Render(`{{hello}} {{World}}`, map[string]string{"hello": "hello"}, struct{ World string }{"world"})
+	tmpl, err := New().CompileString(`{{hello}} {{World}}`)
 	if err != nil {
 		t.Error(err)
-		return
 	}
-	output2, err := Render(`{{hello}} {{World}}`, struct{ World string }{"world"}, map[string]string{"hello": "hello"})
+	output, err := tmpl.Render(map[string]string{"hello": "hello"}, struct{ World string }{"world"})
 	if err != nil {
 		t.Error(err)
-		return
+	}
+	tmpl2, err := New().CompileString(`{{hello}} {{World}}`)
+	if err != nil {
+		t.Error(err)
+	}
+	output2, err := tmpl2.Render(struct{ World string }{"world"}, map[string]string{"hello": "hello"})
+	if err != nil {
+		t.Error(err)
 	}
 	if output != "hello world" || output2 != "hello world" {
 		t.Errorf("TestMultiContext expected %q got %q", "hello world", output)
-		return
 	}
 }
 
@@ -514,7 +541,11 @@ func TestLambda(t *testing.T) {
 	data["lambda"] = func(text string, render RenderFn) (string, error) {
 		return lambda(text, render, "result", data)
 	}
-	output, _ := Render(templ, data)
+	tmpl, err := New().CompileString(templ)
+	if err != nil {
+		t.Error(err)
+	}
+	output, _ := tmpl.Render(templ, data)
 	expect := "Call:OK;Result:hello world subv1 subv2 nothing"
 	if output != expect {
 		t.Fatalf("TestMultiContext expected %q got %q", expect, output)
@@ -527,10 +558,14 @@ func TestLambdaError(t *testing.T) {
 	data["lambda"] = func(text string, render RenderFn) (string, error) {
 		return "", fmt.Errorf("test err")
 	}
-	output, _ := Render(templ, data)
+	tmpl, err := New().CompileString(templ)
+	if err != nil {
+		t.Error(err)
+	}
+	output, _ := tmpl.Render(data)
 	expect := "stop_at_error."
 	if output != expect {
-		t.Fatalf("TestMultiContext expected %q got %q", expect, output)
+		t.Fatalf("TestLambdaError expected %q got %q", expect, output)
 	}
 }
 
@@ -545,7 +580,11 @@ var malformed = []Test{
 
 func TestMalformed(t *testing.T) {
 	for _, test := range malformed {
-		output, err := Render(test.tmpl, test.context)
+		tmpl, err := New().CompileString(test.tmpl)
+		var output string
+		if err == nil {
+			output, err = tmpl.Render(test.context)
+		}
 		if err != nil {
 			if test.err == nil {
 				t.Error(err)
@@ -579,7 +618,15 @@ var layoutTests = []LayoutTest{
 
 func TestLayout(t *testing.T) {
 	for _, test := range layoutTests {
-		output, err := RenderInLayout(test.tmpl, test.layout, test.context)
+		tmpl, err := New().CompileString(test.tmpl)
+		if err != nil {
+			t.Error(err)
+		}
+		tmpl2, err := New().CompileString(test.layout)
+		if err != nil {
+			t.Error(err)
+		}
+		output, err := tmpl.RenderInLayout(tmpl2, test.context)
 		if err != nil {
 			t.Error(err)
 		} else if output != test.expected {
@@ -590,12 +637,12 @@ func TestLayout(t *testing.T) {
 
 func TestLayoutToWriter(t *testing.T) {
 	for _, test := range layoutTests {
-		tmpl, err := ParseString(test.tmpl)
+		tmpl, err := New().CompileString(test.tmpl)
 		if err != nil {
 			t.Error(err)
 			continue
 		}
-		layoutTmpl, err := ParseString(test.layout)
+		layoutTmpl, err := New().CompileString(test.layout)
 		if err != nil {
 			t.Error(err)
 			continue
@@ -652,7 +699,11 @@ func TestPointerReceiver(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		output, err := Render(test.tmpl, test.context)
+		tmpl, err := New().CompileString(test.tmpl)
+		if err != nil {
+			t.Error(err)
+		}
+		output, err := tmpl.Render(test.context)
 		if err != nil {
 			t.Error(err)
 		} else if output != test.expected {
@@ -720,7 +771,7 @@ func TestTags(t *testing.T) {
 }
 
 func testTags(t *testing.T, test *tagsTest) {
-	tmpl, err := ParseString(test.tmpl)
+	tmpl, err := New().CompileString(test.tmpl)
 	if err != nil {
 		t.Error(err)
 		return

@@ -8,7 +8,7 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 
-	"github.com/RumbleDiscovery/mustache"
+	"github.com/RumbleDiscovery/mustache/v2"
 )
 
 var rootCmd = &cobra.Command{
@@ -26,8 +26,10 @@ var rootCmd = &cobra.Command{
 		}
 	},
 }
-var layoutFile string
-var overrideFile string
+var (
+	layoutFile   string
+	overrideFile string
+)
 
 func main() {
 	rootCmd.Flags().StringVar(&layoutFile, "layout", "", "location of layout file")
@@ -72,9 +74,21 @@ func run(cmd *cobra.Command, args []string) error {
 	var output string
 	var err error
 	if layoutFile != "" {
-		output, err = mustache.RenderFileInLayout(templatePath, layoutFile, data)
+		tmpl, err := mustache.New().CompileFile(templatePath)
+		if err != nil {
+			return err
+		}
+		layl, err := mustache.New().CompileFile(layoutFile)
+		if err != nil {
+			return err
+		}
+		output, err = tmpl.RenderInLayout(layl, data)
 	} else {
-		output, err = mustache.RenderFile(templatePath, data)
+		tmpl, err := mustache.New().CompileFile(templatePath)
+		if err != nil {
+			return err
+		}
+		output, err = tmpl.Render(data)
 	}
 	if err != nil {
 		return err

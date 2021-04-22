@@ -239,9 +239,17 @@ func runTest(t *testing.T, file string, test *specTest) {
 	var out string
 	var err error
 	if len(test.Partials) > 0 {
-		out, err = RenderPartials(test.Template, &StaticProvider{test.Partials}, test.Data)
+		tmpl, err := New().WithPartials(&StaticProvider{test.Partials}).CompileString(test.Template)
+		if err != nil {
+			t.Error(err)
+		}
+		out, err = tmpl.Render(test.Data)
 	} else {
-		out, err = Render(test.Template, test.Data)
+		tmpl, err := New().CompileString(test.Template)
+		if err != nil {
+			t.Error(err)
+		}
+		out, err = tmpl.Render(test.Data)
 	}
 	if err != nil {
 		t.Errorf("[%s %s]: %s", file, test.Name, err.Error())
