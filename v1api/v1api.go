@@ -6,7 +6,7 @@ import (
 	"os"
 	"path"
 
-	"github.com/RumbleDiscovery/mustache"
+	"github.com/RumbleDiscovery/mustache/v2"
 )
 
 // ParseString compiles a mustache template string. The resulting output can
