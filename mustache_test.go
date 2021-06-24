@@ -154,6 +154,9 @@ var tests = []Test{
 	{"{{#a}}Hi {{.}}{{/a}}", map[string]interface{}{"a": []interface{}{0}}, "Hi 0", nil},
 	{"{{#a}}Hi {{.}}{{/a}}", map[string]interface{}{"a": [1]interface{}{0}}, "Hi 0", nil},
 
+	// non-false sections have their value at the top of the context
+	{"{{#a}}Hi {{.}}{{/a}}", map[string]interface{}{"a": "Rob"}, "Hi Rob", nil},
+
 	// section does not exist
 	{`{{#has}}{{/has}}`, &User{"Mike", 1}, "", nil},
 
@@ -192,6 +195,30 @@ var tests = []Test{
 	{`{{#categories}}{{DisplayName}}{{/categories}}`, map[string][]*Category{
 		"categories": {&Category{"a", "b"}},
 	}, "a - b", nil},
+
+	{
+		`{{#section}}{{#bool}}{{x}}{{/bool}}{{/section}}`,
+		map[string]interface{}{
+			"x": "broken",
+			"section": []map[string]interface{}{
+				{"x": "working", "bool": true},
+				{"x": "nope", "bool": false},
+			},
+		},
+		"working", nil,
+	},
+
+	{
+		`{{#section}}{{^bool}}{{x}}{{/bool}}{{/section}}`,
+		map[string]interface{}{
+			"x": "broken",
+			"section": []map[string]interface{}{
+				{"x": "working", "bool": false},
+				{"x": "nope", "bool": true},
+			},
+		},
+		"working", nil,
+	},
 
 	// dotted names(dot notation)
 	{`"{{person.name}}" == "{{#person}}{{name}}{{/person}}"`, map[string]interface{}{"person": map[string]string{"name": "Joe"}}, `"Joe" == "Joe"`, nil},
