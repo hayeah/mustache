@@ -86,7 +86,7 @@ errors at render time.
 First, use `mustache.New()` to obtain a Compiler. You can then set options on the compiler:
 
 ```go
-cmpl, _ := mustache.New()
+cmpl := mustache.New()
 cmpl.WithErrors(true)
 cmpl.WithPartials(&FileProvider{
 	Paths: []string{"/app/templates"},
