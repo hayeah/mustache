@@ -630,8 +630,8 @@ func (tmpl *Template) renderSection(section *sectionElement, contextChain []inte
 	if err != nil {
 		return err
 	}
-	context := contextChain[len(contextChain)-1].(reflect.Value)
-	var contexts []interface{}
+	context := contextChain[0].(reflect.Value)
+	contexts := []interface{}{}
 	// if the value is nil, check if it's an inverted section
 	isEmpty := isEmpty(value)
 	if isEmpty && !section.inverted || !isEmpty && section.inverted {
@@ -673,7 +673,10 @@ func (tmpl *Template) renderSection(section *sectionElement, contextChain []inte
 			fmt.Fprintf(buf, "%s", res_str)
 			return nil
 		default:
-			contexts = append(contexts, context)
+			// Spec: Non-false sections have their value at the top of context,
+			// accessible as {{.}} or through the parent context. This gives
+			// a simple way to display content conditionally if a variable exists.
+			contexts = append(contexts, value)
 		}
 	} else if section.inverted {
 		contexts = append(contexts, context)

@@ -56,9 +56,7 @@ This library is an implementation of the Mustache template language in Go.
 
 ### Mustache spec compliance
 
-[mustache/spec](https://github.com/mustache/spec) contains the formal standard for Mustache, and it is included as a
-submodule (using v1.1.3) for testing compliance. All of the tests pass (big thanks
-to [kei10in](https://github.com/kei10in)), though the optional lambda support has not been fully implemented.
+[mustache/spec](https://github.com/mustache/spec) contains the formal standard for Mustache, and it is included as a submodule (using v1.2.1) for testing compliance. All of the tests pass (big thanks to [kei10in](https://github.com/kei10in)), with the exception of the null interpolation tests added in v1.2.1. The optional inheritance and lambda support has not been fully implemented.
 
 ----
 
@@ -86,7 +84,7 @@ errors at render time.
 First, use `mustache.New()` to obtain a Compiler. You can then set options on the compiler:
 
 ```go
-cmpl, _ := mustache.New()
+cmpl := mustache.New()
 cmpl.WithErrors(true)
 cmpl.WithPartials(&FileProvider{
 	Paths: []string{"/app/templates"},
