@@ -278,6 +278,9 @@ func TestMissing(t *testing.T) {
 			t.Error(err)
 		}
 		output, err := cmpl.Render(test.context)
+		if err != nil {
+			t.Error(err)
+		}
 		if output != test.expected {
 			t.Errorf("%q expected %q got %q", test.tmpl, test.expected, output)
 		}

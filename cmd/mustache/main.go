@@ -26,6 +26,7 @@ var rootCmd = &cobra.Command{
 		}
 	},
 }
+
 var (
 	layoutFile   string
 	overrideFile string
@@ -72,7 +73,7 @@ func run(cmd *cobra.Command, args []string) error {
 		}
 	}
 	var output string
-	var err error
+	var oerr error
 	if layoutFile != "" {
 		tmpl, err := mustache.New().CompileFile(templatePath)
 		if err != nil {
@@ -82,16 +83,16 @@ func run(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return err
 		}
-		output, err = tmpl.RenderInLayout(layl, data)
+		output, oerr = tmpl.RenderInLayout(layl, data)
 	} else {
 		tmpl, err := mustache.New().CompileFile(templatePath)
 		if err != nil {
 			return err
 		}
-		output, err = tmpl.Render(data)
+		output, oerr = tmpl.Render(data)
 	}
-	if err != nil {
-		return err
+	if oerr != nil {
+		return oerr
 	}
 	fmt.Print(output)
 	return nil

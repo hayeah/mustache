@@ -110,24 +110,24 @@ func runTest(t *testing.T, file string, test *specTest) {
 		((test.Data.(map[string]interface{}))["lambda"]) = lambda
 	}
 	var out string
-	var err error
+	var oerr error
 	if len(test.Partials) > 0 {
 		tmpl, err := New().WithPartials(&StaticProvider{test.Partials}).CompileString(test.Template)
 		if err != nil {
 			t.Error(err)
 		}
-		out, err = tmpl.Render(test.Data)
+		out, oerr = tmpl.Render(test.Data)
 	} else {
 		t.Logf("test.Template = %s", test.Template)
 		tmpl, err := New().CompileString(test.Template)
 		if err != nil {
 			t.Error(err)
 		} else {
-			out, err = tmpl.Render(test.Data)
+			out, oerr = tmpl.Render(test.Data)
 		}
 	}
-	if err != nil {
-		t.Errorf("[%s %s]: %s", file, test.Name, err.Error())
+	if oerr != nil {
+		t.Errorf("[%s %s]: %s", file, test.Name, oerr.Error())
 		return
 	}
 	if out != test.Expected {
