@@ -1,9 +1,9 @@
 # Mustache template engine for Go
 
-[![Go Doc](https://pkg.go.dev/badge/github.com/RumbleDiscovery/mustache)](https://pkg.go.dev/github.com/RumbleDiscovery/mustache)
-[![Go Report Card](https://goreportcard.com/badge/github.com/RumbleDiscovery/mustache)](https://goreportcard.com/report/github.com/RumbleDiscovery/mustache)
-[![Build Status](https://img.shields.io/travis/RumbleDiscovery/mustache.svg)](https://travis-ci.com/github/RumbleDiscovery/mustache/settings)
-[![codecov](https://codecov.io/gh/RumbleDiscovery/mustache/branch/main/graph/badge.svg?token=S4xOabgqR8)](https://codecov.io/gh/RumbleDiscovery/mustache)
+[![Go Doc](https://pkg.go.dev/badge/github.com/runZeroInc/mustache)](https://pkg.go.dev/github.com/runZeroInc/mustache)
+[![Go Report Card](https://goreportcard.com/badge/github.com/runZeroInc/mustache)](https://goreportcard.com/report/github.com/runZeroInc/mustache)
+[![Build Status](https://img.shields.io/travis/runZeroInc/mustache.svg)](https://travis-ci.com/github/runZeroInc/mustache/settings)
+[![codecov](https://codecov.io/gh/runZeroInc/mustache/branch/main/graph/badge.svg?token=S4xOabgqR8)](https://codecov.io/gh/runZeroInc/mustache)
 
 <img src="images/logo.jpeg" alt="logo" width="100"/>
 
@@ -30,7 +30,7 @@ as [Mario](https://github.com/imantung/mario).
 ## CLI overview
 
 ```bash
-% go get github.com/RumbleDiscovery/mustache/...
+% go get github.com/runZeroInc/mustache/...
 % mustache
 Usage:
   mustache [data] template [flags]
@@ -71,7 +71,7 @@ Also check out some [example mustache files](http://github.com/defunkt/mustache/
 
 ## Installation
 
-To install mustache.go, simply run `go get github.com/RumbleDiscovery/mustache/...`. To use it in a program, use `import "github.com/RumbleDiscovery/mustache"`
+To install mustache.go, simply run `go get github.com/runZeroInc/mustache/...`. To use it in a program, use `import "github.com/runZeroInc/mustache"`
 
 ----
 

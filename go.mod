@@ -1,4 +1,4 @@
-module github.com/RumbleDiscovery/mustache/v2
+module github.com/runZeroInc/mustache/v2
 
 go 1.16
 
