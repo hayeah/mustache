@@ -3,7 +3,6 @@ package mustache
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sort"
@@ -63,7 +62,7 @@ func TestSpec(t *testing.T) {
 
 	for _, path := range paths {
 		_, file := filepath.Split(path)
-		b, err := ioutil.ReadFile(path)
+		b, err := os.ReadFile(path)
 		if err != nil {
 			t.Fatal(err)
 		}

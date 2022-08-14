@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -99,7 +99,7 @@ func run(cmd *cobra.Command, args []string) error {
 }
 
 func parseDataFromStdIn() (interface{}, error) {
-	b, err := ioutil.ReadAll(os.Stdin)
+	b, err := io.ReadAll(os.Stdin)
 	if err != nil {
 		return nil, err
 	}
@@ -111,7 +111,7 @@ func parseDataFromStdIn() (interface{}, error) {
 }
 
 func parseDataFromFile(filePath string) (interface{}, error) {
-	b, err := ioutil.ReadFile(filePath)
+	b, err := os.ReadFile(filePath)
 	if err != nil {
 		return nil, err
 	}

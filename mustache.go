@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"html/template"
 	"io"
-	"io/ioutil"
+	"os"
 	"reflect"
 	"strconv"
 	"strings"
@@ -58,7 +58,7 @@ func (r *Compiler) CompileString(data string) (*Template, error) {
 
 // CompileFile compiles a Mustache template from a file.
 func (r *Compiler) CompileFile(filename string) (*Template, error) {
-	data, err := ioutil.ReadFile(filename)
+	data, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
