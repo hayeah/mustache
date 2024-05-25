@@ -2,6 +2,7 @@ package mustache
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path"
@@ -446,6 +447,53 @@ func TestRenderRaw(t *testing.T) {
 	}
 }
 
+func toJSONString(data any) (string, error) {
+	out, err := json.Marshal(data)
+	if err != nil {
+		return "", err
+	}
+	return string(out), nil
+}
+
+func TestCustomValueStringer(t *testing.T) {
+
+	type testStruct struct {
+		A string
+		B []string
+		C json.RawMessage
+		D string
+	}
+
+	tests := []struct {
+		Template string
+		Data     any
+		Result   string
+	}{
+		{
+			Template: `{ "a": {{A}}, "b": {{B}}, "c": {{C}}, "d": {{{D}}} }`,
+			Data:     testStruct{"hello", []string{"hello", "world"}, json.RawMessage(`["raw json"]`), "['unescaped']"},
+			Result:   `{ "a": "hello", "b": ["hello","world"], "c": ["raw json"], "d": ['unescaped'] }`,
+		},
+	}
+
+	for _, tst := range tests {
+		tmpl, err := New().WithEscapeMode(Raw).WithValueStringer(toJSONString).CompileString(tst.Template)
+		if err != nil {
+			t.Error(err)
+		}
+
+		// tmpl.valueStringer = toJSONString
+		// tmpl.outputMode = EscapeJSON
+		txt, err := tmpl.Render(tst.Data)
+		if err != nil {
+			t.Error(err)
+		}
+		if txt != tst.Result {
+			t.Errorf("expected %s got %s", tst.Result, txt)
+		}
+	}
+}
+
 func TestRenderJSON(t *testing.T) {
 	type item struct {
 		Emoji string
@@ -521,15 +569,15 @@ func TestCrashers(t *testing.T) {
 }
 
 /*
-func TestSectionPartial(t *testing.T) {
-    filename := path.Join(path.Join(os.Getenv("PWD"), "tests"), "test3.mustache")
-    expected := "Mike\nJoe\n"
-    context := map[string]interface{}{"users": []User{{"Mike", 1}, {"Joe", 2}}}
-    output := RenderFile(filename, context)
-    if output != expected {
-        t.Fatalf("testSectionPartial expected %q got %q", expected, output)
-    }
-}
+	func TestSectionPartial(t *testing.T) {
+	    filename := path.Join(path.Join(os.Getenv("PWD"), "tests"), "test3.mustache")
+	    expected := "Mike\nJoe\n"
+	    context := map[string]interface{}{"users": []User{{"Mike", 1}, {"Joe", 2}}}
+	    output := RenderFile(filename, context)
+	    if output != expected {
+	        t.Fatalf("testSectionPartial expected %q got %q", expected, output)
+	    }
+	}
 */
 func TestMultiContext(t *testing.T) {
 	tmpl, err := New().CompileString(`{{hello}} {{World}}`)

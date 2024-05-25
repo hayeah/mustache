@@ -18,6 +18,7 @@ type RenderFn func(text string) (string, error)
 type Compiler struct {
 	partial        PartialProvider
 	outputMode     EscapeMode
+	valueStringer  ValueStringer
 	errorOnMissing bool
 }
 
@@ -28,6 +29,13 @@ func New() *Compiler {
 // WithPartials adds a partial provider and enables support for partials.
 func (r *Compiler) WithPartials(pp PartialProvider) *Compiler {
 	r.partial = pp
+	return r
+}
+
+// WithValueStringer sets a function to convert values to strings. This is useful for customizing the output of
+// values in the template.
+func (r *Compiler) WithValueStringer(vs ValueStringer) *Compiler {
+	r.valueStringer = vs
 	return r
 }
 
@@ -48,7 +56,7 @@ func (r *Compiler) WithErrors(b bool) *Compiler {
 
 // CompileString compiles a Mustache template from a string.
 func (r *Compiler) CompileString(data string) (*Template, error) {
-	tmpl := Template{data, "{{", "}}", 0, 1, []interface{}{}, false, r.partial, r.outputMode, r.errorOnMissing, r}
+	tmpl := Template{data, "{{", "}}", 0, 1, []interface{}{}, false, r.partial, r.outputMode, r.valueStringer, r.errorOnMissing, r}
 	err := tmpl.parse()
 	if err != nil {
 		return nil, err
@@ -137,6 +145,8 @@ type partialElement struct {
 	prov   PartialProvider
 }
 
+type ValueStringer func(any any) (string, error)
+
 // EscapeMode indicates what sort of escaping to perform in template output.
 // EscapeHTML is the default, and assumes the template is producing HTML.
 // EscapeJSON switches to JSON escaping, for use cases such as generating Slack messages.
@@ -160,6 +170,7 @@ type Template struct {
 	forceRaw       bool
 	partial        PartialProvider
 	outputMode     EscapeMode
+	valueStringer  ValueStringer
 	errorOnMissing bool
 	parent         *Compiler
 }
@@ -757,6 +768,13 @@ func getElementText(element interface{}, buf io.Writer) {
 	}
 }
 
+func (tmpl *Template) valueString(value any) (string, error) {
+	if tmpl.valueStringer != nil {
+		return tmpl.valueStringer(value)
+	}
+	return fmt.Sprint(value), nil
+}
+
 func (tmpl *Template) renderElement(element interface{}, contextChain []interface{}, buf io.Writer) error {
 	switch elem := element.(type) {
 	case *textElement:
@@ -774,10 +792,14 @@ func (tmpl *Template) renderElement(element interface{}, contextChain []interfac
 		}
 
 		if val.IsValid() {
+
 			if elem.raw {
 				fmt.Fprint(buf, val.Interface())
 			} else {
-				s := fmt.Sprint(val.Interface())
+				s, err := tmpl.valueString(val.Interface())
+				if err != nil {
+					return err
+				}
 				switch tmpl.outputMode {
 				case EscapeJSON:
 					if err = JSONEscape(buf, s); err != nil {
