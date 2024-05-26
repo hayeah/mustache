@@ -447,14 +447,6 @@ func TestRenderRaw(t *testing.T) {
 	}
 }
 
-func toJSONString(data any) (string, error) {
-	out, err := json.Marshal(data)
-	if err != nil {
-		return "", err
-	}
-	return string(out), nil
-}
-
 func TestCustomValueStringer(t *testing.T) {
 
 	type testStruct struct {

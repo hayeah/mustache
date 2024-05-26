@@ -7,7 +7,13 @@
 
 <img src="images/logo.jpeg" alt="logo" width="100"/>
 
-----
+---
+
+## WHY YET ANOTHER FORK?
+
+This fork marshal value to JSON before rendering. This is useful when you want to render JSON data in a template.
+
+Following the footsteps of previous contributors, I have forked rather than submitting a PR that nobody would want to merge.
 
 ## Why a fork?
 
@@ -25,7 +31,7 @@ safe to allow end users to supply templates. Extensions to the templating langua
 want more than Mustache offers, consider a [Handlebars](https://handlebarsjs.com/) implementation such
 as [Mario](https://github.com/imantung/mario).
 
-----
+---
 
 ## CLI overview
 
@@ -48,7 +54,7 @@ Flags:
 %
 ```
 
-----
+---
 
 ## Package overview
 
@@ -58,7 +64,7 @@ This library is an implementation of the Mustache template language in Go.
 
 [mustache/spec](https://github.com/mustache/spec) contains the formal standard for Mustache, and it is included as a submodule (using v1.2.1) for testing compliance. All of the tests pass (big thanks to [kei10in](https://github.com/kei10in)), with the exception of the null interpolation tests added in v1.2.1. The optional inheritance and lambda support has not been fully implemented.
 
-----
+---
 
 ## Documentation
 
@@ -67,13 +73,13 @@ the [mustache manual](http://mustache.github.com/mustache.5.html).
 
 Also check out some [example mustache files](http://github.com/defunkt/mustache/tree/master/examples/).
 
-----
+---
 
 ## Installation
 
 To install mustache.go, simply run `go get github.com/runZeroInc/mustache/...`. To use it in a program, use `import "github.com/runZeroInc/mustache"`
 
-----
+---
 
 ## Usage
 
@@ -118,9 +124,9 @@ custom Partial retrieval.
 Unlike in the v1 API, the defaults for the compiler are intended to be safe, with no partial support -- you have to
 provide a PartialProvider explicitly if you want to use partials. So by default you get:
 
- - No partials
- - No errors when data is missing from the context
- - HTML escaping
+- No partials
+- No errors when data is missing from the context
+- HTML escaping
 
 There are no longer functions to render a template without compiling to a `*Template` object. The engine always compiles
 even if you throw the template away when you're done with it, so there's no speed benefit to having a non-compiling
@@ -128,7 +134,7 @@ option.
 
 For more example usage, please see `mustache_test.go`
 
-----
+---
 
 ## Escaping
 
@@ -144,7 +150,7 @@ will be safe to include as part of an HTML page.
 A third mode of `mustache.Raw` allows the use of Mustache templates to generate plain text, such as e-mail messages and
 console application help text.
 
-----
+---
 
 ## Layouts
 
@@ -161,10 +167,12 @@ layout.html.mustache:
 
 ```html
 <html>
-<head><title>Hi</title></head>
-<body>
-{{{content}}}
-</body>
+  <head>
+    <title>Hi</title>
+  </head>
+  <body>
+    {{{content}}}
+  </body>
 </html>
 ```
 
@@ -185,21 +193,23 @@ A call to `template.RenderInLayout(layout)` will produce:
 
 ```html
 <html>
-<head><title>Hi</title></head>
-<body>
-<h1>Hello World!</h1>
-</body>
+  <head>
+    <title>Hi</title>
+  </head>
+  <body>
+    <h1>Hello World!</h1>
+  </body>
 </html>
 ```
 
-----
+---
 
 ## Custom PartialProvider
 
 Mustache supports user-defined repositories for mustache partials.
 
-A `PartialProvider` is any object that responds to `Get(string) (*Template,error)`, and two examples are provided -- 
-a `FileProvider` that loads files from disk, and a `StaticProvider` alias for a `map[string]string`. Using either 
+A `PartialProvider` is any object that responds to `Get(string) (*Template,error)`, and two examples are provided --
+a `FileProvider` that loads files from disk, and a `StaticProvider` alias for a `map[string]string`. Using either
 of these is simple:
 
 ```go
@@ -219,7 +229,7 @@ sp := StaticProvider(map[string]string{
 tmpl, err := mustache.New().WithPartials(sp).CompileString("This partial is loaded from a map: {{>foo}}", sp)
 ```
 
-----
+---
 
 ## A note about method receivers
 

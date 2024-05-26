@@ -2,6 +2,7 @@ package mustache
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"io"
@@ -11,6 +12,18 @@ import (
 	"strings"
 	"unicode"
 )
+
+func toJSONString(data any) (string, error) {
+	out, err := json.Marshal(data)
+	if err != nil {
+		return "", err
+	}
+	return string(out), nil
+}
+
+func JSONTemplate(template string) (*Template, error) {
+	return New().WithEscapeMode(Raw).WithValueStringer(toJSONString).CompileString(template)
+}
 
 // RenderFn is the signature of a function which can be called from a lambda section
 type RenderFn func(text string) (string, error)
