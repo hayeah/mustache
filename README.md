@@ -11,7 +11,42 @@
 
 ## WHY YET ANOTHER FORK?
 
-This fork marshal value to JSON before rendering. This is useful when you want to render JSON data in a template.
+This fork marshals value to JSON before rendering. This is useful when you want to generate JSON objects from template.
+
+```go
+type MyNestedObject struct {
+  Bar string `json:"bar"`
+}
+
+type MyObject struct {
+  Foo    string
+  Nested MyNestedObject `json:"nested"`
+}
+
+template, err := mustache.JSONTemplate(`{"data": {{Nested}}, "foo": {{Foo}}}`)
+if err != nil {
+  log.Fatalln(err)
+}
+
+out, err := template.Render(MyObject{
+  Foo: "hello",
+  Nested: MyNestedObject{
+    Bar: "world",
+  },
+})
+
+if err != nil {
+  log.Fatalln(err)
+}
+
+fmt.Println(out)
+```
+
+The rendered JSON:
+
+```json
+{ "data": { "bar": "world" }, "foo": "hello" }
+```
 
 Following the footsteps of previous contributors, I have forked rather than submitting a PR that nobody would want to merge.
 
