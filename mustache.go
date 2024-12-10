@@ -22,7 +22,24 @@ func toJSONString(data any) (string, error) {
 }
 
 func JSONTemplate(template string) (*Template, error) {
-	return New().WithEscapeMode(Raw).WithValueStringer(toJSONString).CompileString(template)
+	return New().WithErrors(true).WithEscapeMode(Raw).WithValueStringer(toJSONString).CompileString(template)
+}
+
+// RenderJSON renders a mustache JSON template with the given data.
+func RenderJSON(template string, data any) ([]byte, error) {
+	t, err := JSONTemplate(template)
+	if err != nil {
+		return nil, err
+	}
+
+	var buf bytes.Buffer
+
+	err = t.Frender(&buf, data)
+	if err != nil {
+		return nil, err
+	}
+
+	return buf.Bytes(), err
 }
 
 // RenderFn is the signature of a function which can be called from a lambda section
